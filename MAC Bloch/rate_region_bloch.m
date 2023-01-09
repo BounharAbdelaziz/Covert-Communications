@@ -8,7 +8,7 @@ X1_cardinality                  = 2;
 X2_cardinality                  = 2;
 X1_X2_cardinality               = 4;
 Y_cardinality                   = 4;
-N_epochs                        = 2000;
+N_epochs                        = 5000;
 optimize_rhos                   = 1;
 generate_random_channel_laws    = 0;
 % maximum value of P_{X1}(1)
@@ -103,6 +103,8 @@ end
 % Covert user rates
 users_rates = zeros(N_epochs,n_users);
 
+% saving the rho's as we want the find the \rho^*
+rhos_saved = zeros(N_epochs,n_users);
 
 % iterate over all input distributions.
 for epoch = progress(1:N_epochs)
@@ -128,11 +130,32 @@ for epoch = progress(1:N_epochs)
         disp(['The non covert rate r2 is: ', num2str(r2)]);
         disp(['The covert rate r1 is: ', num2str(r1)]);
     end
+
+    rhos_saved(epoch,1)= rhos(1);
+    rhos_saved(epoch,2)= rhos(2);
 end
 
 if length(users_rates(:,1)) > 1
     r1_vect = users_rates(:,1);
     r2_vect = users_rates(:,2);
+    
+    % we will take the minimum difference, as it reprents the \rho^*
+    difference_rates = abs(r2_vect-r1_vect);
+    [tmp, indice_star] = min(difference_rates);
+    rho_star_1 = rhos_saved(indice_star, 1);
+    rho_star_2 = rhos_saved(indice_star, 2);
+    r1_star = r1_vect(indice_star);
+    r2_star = r2_vect(indice_star);
+
+    % region of covertness point
+    rhos_star = zeros(1,2);
+    rhos_star(1) = rho_star_1;
+    rhos_star(2) = rho_star_2;
+    covert_rhos_starpoints(2) = rho_star_2;
+
+    covert_points = CovertCommunicationBloch.compute_covert_point(W_Z_X1_X2, rhos_star, n_users, Y_cardinality);
+    covert_points_1 = covert_points(1);
+    covert_points_2 = covert_points(2);
 
     min_r1 = min(r1_vect);
     max_r1 = max(r1_vect);
@@ -146,6 +169,9 @@ if length(users_rates(:,1)) > 1
     disp('--------------------------------------')
     disp(['The minimum covert rate r2 is: ', num2str(min_r2)]);
     disp(['The maximum covert rate r2 is: ', num2str(max_r2)]);
+    disp('--------------------------------------')
+    disp(['The best \rho for user 1 is: ', num2str(rho_star_1), 'the corresponding rate for user 1 is: ',num2str(r1_star)]);
+    disp(['The best \rho for user 2 is: ', num2str(rho_star_2), 'the corresponding rate for user 2 is: ',num2str(r2_star)]);
     disp('--------------------------------------')
     disp(['The number of time P_{X1}(1) >', num2str(max_P_X1_1), ' is: ', num2str(cpt_higher_than_max_P_X1_1), '. Which corresponds to a percentage of: ', num2str(100*cpt_higher_than_max_P_X1_1/N_epochs), '%']);  
     disp('--------------------------------------')
@@ -165,7 +191,41 @@ if length(users_rates(:,1)) > 1
 
     figure 
     ax2 = nexttile;
-    scatter(ax2, r1_vect, r2_vect,'r');
+    scatter(ax2, r1_vect, r2_vect,'black');
+    hold on;
+
+    % Ploting the reliability constraint
+    plot(r1_star, r2_star, 'o','MarkerSize',12);
+
+    x1 = linspace(0,r1_star,100);
+    y1=r2_star;
+    
+    x2 = r1_star;
+    y2 = linspace(0,r2_star,100);
+
+    plot(x1,y1*ones(size(x1)), '--g')
+    plot(x2*ones(size(y2)),y2, '--g')
+
+    % Ploting the covert constraint
+    plot(covert_points_1, covert_points_2, '*','MarkerSize',12);
+%     yline(covert_points_1);
+%     xline(covert_points_2)
+
+    x1 = linspace(covert_points_1,max_r1,100);
+    y1=covert_points_2;
+    
+    x2 = covert_points_1;
+    y2 = linspace(max_r2, covert_points_2,100);
+
+    plot(x1,y1*ones(size(x1)), '--r')
+    plot(x2*ones(size(y2)),y2, '--r')
+
+    legend( 'Boundary of covert capicity region', ...
+            'maximum achievable covert throughput', ...
+            'Reliability constraint on (\rho_1^*, \rho_2^*)', ...
+            'Reliability constraint on (\rho_1^*, \rho_2^*)', ...
+            'Covert constraint on (\rho_1^*, \rho_2^*)')
+    
     title(ax2,'MAC Rate region - Bloch');
     xlabel(ax2,'Covert user 1');
     ylabel(ax2,'Covert user 2');

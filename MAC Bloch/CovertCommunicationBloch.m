@@ -1,6 +1,30 @@
 classdef CovertCommunicationBloch
 
     methods (Static)
+        
+        function covert_points = compute_covert_point(W_Z_X1_X2, rhos_star, n_users, Y_cardinality)
+            covert_points = zeros(1,2);
+            
+            Q1 = W_Z_X1_X2(3,:);
+            Q2 = W_Z_X1_X2(2,:);
+            Q0 = W_Z_X1_X2(1,:);
+
+            Q = zeros(n_users, Y_cardinality);
+            Q(1,:) = Q1;
+            Q(2,:) = Q2;
+
+            relative_entropy_Q1_Q0 = InformationTheory.relative_entropy(Q1, Q0);
+            relative_entropy_Q2_Q0 = InformationTheory.relative_entropy(Q2, Q0);
+            
+            chi_2_distance = CovertCommunicationBloch.chi_2_distance_bloch(Q, Q0, rhos_star);
+             
+            ratio = sqrt(2)/chi_2_distance;
+            covert_point_1 = ratio * rhos_star(1) * relative_entropy_Q1_Q0;
+            covert_point_2 = ratio * rhos_star(2) * relative_entropy_Q2_Q0;
+
+            covert_points(1) = covert_point_1;
+            covert_points(2) = covert_point_2;
+        end
 
         function chi = chi_2_distance_bloch(Q, Q0, rhos)
             % Input:

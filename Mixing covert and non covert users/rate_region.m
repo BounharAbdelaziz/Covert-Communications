@@ -1,3 +1,11 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Rate Region simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Steps to follow:
+% - define a simple channel
+% - verify the constaints (absolute continuity)
+% - compute the rate
+% - do a loop on P_T, P_{X2 \mid T}, P_{X1 \mid T} and \epsilon_T
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 % seed for reproducibility
 % seed                            = 1998;
 % rng(seed);
@@ -5,36 +13,39 @@
 % for simulation
 % \matchal{T} is of cardinality 4
 T_cardinality                   = 3;
-uniform_P_T                     = 1;
+uniform_P_T                     = 0;
 
 % channel parameters
 X1_cardinality                  = 2;
 X2_cardinality                  = 2;
 X1_X2_cardinality               = 4;
-Y_cardinality                   = 5;
+Y_cardinality                   = 4;
 % noise probabilities
 pw                              = 0.1;
 pw_eve                          = 0.15;
 
 % simulations parameters
-N_epochs                        = 10000;
+N_epochs                        = 100000;
 max_epsilon_t                   = 1;
-optimize_epsilons_T             = 0;
-generate_random_channel_laws    = 1;
+optimize_epsilons_T             = 1;
+generate_random_channel_laws    = 0;
 % maximum value of P_{X1}(1)
 max_P_X1_1                      = 1;
 cpt_higher_than_max_P_X1_1      = 0;
-
+% if we compute the rate of the non covert user according to I(X2;Y \mid T)
+use_mutual_info_without_x1_0    = 0;
+draw_convhull                   = 0;
+plot_3d                         = 1;
 
 % error in the if conditions (1==1.00)
 tolerance                       = 1e-6;
 
 % Prints if debug mode
 DEBUG                           = 0;
-DEBUG_covert                    = 1;
-DEBUG_covert_theorem_contraints = 1;
+DEBUG_covert                    = 0;
+DEBUG_covert_theorem_contraints = 0;
 
-Epsilon_T = max_epsilon_t*rand(T_cardinality,1);
+
 
 % for fixed epsilon_T
 if (ismembertol(optimize_epsilons_T, 0, tolerance))
@@ -48,19 +59,36 @@ end
 
 % MAC Channel matrix : We consider the channel Y = (2*X1 + X2 + w) % 4 where all variables are binary => \mathcal{Y} = \{0,1,2,3}
 % for each Y and fixed (x1, x2) we have a vector of probabilities [y=0, y=1, y=2, y=3]
+P_T                 = InformationTheory.generate_probability_vector(T_cardinality,1,1,0,1);
+Epsilon_T           = max_epsilon_t*rand(T_cardinality,1);
+P_X2_0_mid_T        = rand(T_cardinality,1);
+P_X2_1_mid_T        = 1-P_X2_0_mid_T;
+P_X2_mid_T          = zeros(X2_cardinality,T_cardinality);
+for t=1:T_cardinality
+    P_X2_mid_T(1,t)     = P_X2_0_mid_T(t); % P_X1_mid_T(0|t)
+    P_X2_mid_T(2,t)     = P_X2_1_mid_T(t); % P_X2_mid_T(1|t)
+end
 
-P_X2_mid_T = [[1 1 1] ; [0 0 0]];
 if (ismembertol(generate_random_channel_laws, 1, tolerance))
 
     W_Y_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1)); % InformationTheory.generate_random_channel_matrix(m, n, smallest_poba_value_bob);
     W_Z_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1)); % InformationTheory.generate_random_channel_matrix(m, n, smallest_poba_value_eve);
-    verified_conditions = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, T_cardinality, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, DEBUG_covert_theorem_contraints);
+    verified_conditions = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, DEBUG_covert_theorem_contraints);
+      
     % loop while untill constraint on absolute continuity and difference are met 
-    
     while (verified_conditions < 1)
+        P_T                 = InformationTheory.generate_probability_vector(T_cardinality,1,1,0,1);
+        Epsilon_T           = max_epsilon_t*rand(T_cardinality,1);
+        P_X2_0_mid_T        = rand(T_cardinality,1);
+        P_X2_1_mid_T        = 1-P_X2_0_mid_T;
+        P_X2_mid_T          = zeros(X2_cardinality,T_cardinality);
+        for t=1:T_cardinality
+            P_X2_mid_T(1,t)     = P_X2_0_mid_T(t); % P_X1_mid_T(0|t)
+            P_X2_mid_T(2,t)     = P_X2_1_mid_T(t); % P_X2_mid_T(1|t)
+        end
         W_Y_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1)); %generate_random_channel_matrix
         W_Z_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1)); %generate_random_channel_matrix
-        verified_conditions = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, T_cardinality, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, DEBUG_covert_theorem_contraints);
+        verified_conditions = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, DEBUG_covert_theorem_contraints);
     end
 else
     % Binary noise rv follows a bernoulli distribution    
@@ -93,7 +121,7 @@ else
     W_Z_X1_X2(3,:) = W_Z_X1_1_X2_0;
     W_Z_X1_X2(4,:) = W_Z_X1_1_X2_1;
 
-    [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, T_cardinality, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, DEBUG_covert_theorem_contraints);
+    [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, DEBUG_covert_theorem_contraints);
     verified_conditions =1;
 
     if (verified_conditions < 1)
@@ -121,34 +149,35 @@ r1_vect = zeros(N_epochs,1);
 % Non covert user rates
 r2_vect = zeros(N_epochs,1);
 
+% Secret key rates
+rk_vect = zeros(N_epochs,1);
 
 % iterate over all input distributions.
 for epoch = progress(1:N_epochs)
     
     % Generate new P_T
     if (uniform_P_T)
-        P_T                 = (1/T_cardinality)*ones(T_cardinality,1); % uniform P_T
+        P_T                 = (1/T_cardinality)*ones(T_cardinality,1);
     else
-        %P_T                 = [0.25 0.01 0.49 0.25]; 
         P_T                 = InformationTheory.generate_probability_vector(T_cardinality,1,1,0,1);
-        %P_T                 = [0 0 1 0]; 
     end
 
-    
     if DEBUG
         disp('P_T is:')
         disp(P_T)
     end
+
     if (ismembertol(optimize_epsilons_T, 1, tolerance))
     % The epsilon's that normalizes the probability of sending one for the covert user (we choose them summing to one for now but it's not necessary)
         Epsilon_T           = max_epsilon_t*rand(T_cardinality,1); %[0.3 0.1 0.2 0.4];
     end
+
     % Binary alphabet for the covert user, we define the conditional distribution P_{X_1 \mid T}
-    P_X1_0_mid_T        = rand(T_cardinality,1); %[0.4 0.6 0.3 0.9]; % [P_X1_mid_T(0|1) P_X1_mid_T(0|2) P_X1_mid_T(0|3) P_X1_mid_T(0|4)] 
+    P_X1_0_mid_T        = rand(T_cardinality,1); % [P_X1_mid_T(0|1) P_X1_mid_T(0|2) P_X1_mid_T(0|3) P_X1_mid_T(0|4)] 
     P_X1_1_mid_T        = 1 - P_X1_0_mid_T; % [P_X1_mid_T(1|1) P_X1_mid_T(1|2) P_X1_mid_T(1|3) P_X1_mid_T(1|4)]
     
     % Binary alphabet for the non covert user, we define the conditional distribution P_{X_1 \mid T}
-    P_X2_0_mid_T        = rand(T_cardinality,1); %[0.2 0.2 0.3 0.4]; % [P_X2_mid_T(0|0) P_X2_mid_T(0|1) P_X2_mid_T(0|2) P_X2_mid_T(0|3)]
+    P_X2_0_mid_T        = rand(T_cardinality,1); % [P_X2_mid_T(0|0) P_X2_mid_T(0|1) P_X2_mid_T(0|2) P_X2_mid_T(0|3)]
     P_X2_1_mid_T        = 1 - P_X2_0_mid_T; % [P_X2_mid_T(1|0) P_X2_mid_T(1|1) P_X2_mid_T(1|2) P_X2_mid_T(1|3)]
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Conditional input disbutions P_X1_mid_T and P_X2_mid_T %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -161,6 +190,7 @@ for epoch = progress(1:N_epochs)
     end
     
     P_X2_mid_T          = zeros(X2_cardinality,T_cardinality);
+
     for t=1:T_cardinality
         P_X2_mid_T(1,t)     = P_X2_0_mid_T(t); % P_X1_mid_T(0|t)
         P_X2_mid_T(2,t)     = P_X2_1_mid_T(t); % P_X2_mid_T(1|t)
@@ -175,18 +205,14 @@ for epoch = progress(1:N_epochs)
 % %     P_X1_mid_T(2,2)     = P_X1_1_mid_T(2); % P_X1_mid_T(1|1)
 % %     P_X1_mid_T(2,3)     = P_X1_1_mid_T(3); % P_X1_mid_T(1|2)
 % %     P_X1_mid_T(2,4)     = P_X1_1_mid_T(4); % P_X1_mid_T(1|3)
-% %     
-% %     P_X2_mid_T          = zeros(2,T_cardinality);
-% %     
-% %     P_X2_mid_T(1,1)     = P_X2_0_mid_T(1); % P_X2_mid_T(0|0)
-% %     P_X2_mid_T(1,2)     = P_X2_0_mid_T(2); % P_X2_mid_T(0|1)
-% %     P_X2_mid_T(1,3)     = P_X2_0_mid_T(3); % P_X2_mid_T(0|2)
-% %     P_X2_mid_T(1,4)     = P_X2_0_mid_T(4); % P_X2_mid_T(0|3)
-% %     
-% %     P_X2_mid_T(2,1)     = P_X2_1_mid_T(1); % P_X2_mid_T(1|0)
-% %     P_X2_mid_T(2,2)     = P_X2_1_mid_T(2); % P_X2_mid_T(1|1)
-% %     P_X2_mid_T(2,3)     = P_X2_1_mid_T(3); % P_X2_mid_T(1|2)
-% %     P_X2_mid_T(2,4)     = P_X2_1_mid_T(4); % P_X2_mid_T(1|3)
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Verify if conditions are met with these choices %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    verified_conditions = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, T_cardinality, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, DEBUG_covert_theorem_contraints);
+
+    if (verified_conditions < 1)
+        continue % go to next iteration
+    end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Marginal distributions P_X1 and P_X2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
@@ -210,8 +236,8 @@ for epoch = progress(1:N_epochs)
         disp(P_X1)
     end
 
-    P_X2                = zeros(1,2);
-    for i=1:2 % because binary symbols
+    P_X2                = zeros(1,X2_cardinality);
+    for i=1:X2_cardinality
         avg = 0;
         for j=1:length(P_X2_mid_T)
             avg = avg + P_X2_mid_T(i,j) * P_T(j);
@@ -250,29 +276,7 @@ for epoch = progress(1:N_epochs)
         disp('W_Y_X1_X2 is: ');
         disp(W_Y_X1_X2);
     end
-    
-    
-% % %     % y = 0
-% % %     W_0_0_0 = W_Y_X1_X2(1,1);
-% % %     W_0_0_1 = W_Y_X1_X2(2,1);
-% % %     W_0_1_0 = W_Y_X1_X2(3,1);
-% % %     W_0_1_1 = W_Y_X1_X2(4,1);
-% % %     % y = 1
-% % %     W_1_0_0 = W_Y_X1_X2(1,2);
-% % %     W_1_0_1 = W_Y_X1_X2(2,2);
-% % %     W_1_1_0 = W_Y_X1_X2(3,2);
-% % %     W_1_1_1 = W_Y_X1_X2(4,2);
-% % %     % y = 2
-% % %     W_2_0_0 = W_Y_X1_X2(1,3);
-% % %     W_2_0_1 = W_Y_X1_X2(2,3);
-% % %     W_2_1_0 = W_Y_X1_X2(3,3);
-% % %     W_2_1_1 = W_Y_X1_X2(4,3);
-% % %     % y = 3
-% % %     W_3_0_0 = W_Y_X1_X2(1,4);
-% % %     W_3_0_1 = W_Y_X1_X2(2,4);
-% % %     W_3_1_0 = W_Y_X1_X2(3,4);
-% % %     W_3_1_1 = W_Y_X1_X2(4,4);
-    
+
     W_Y_X1_0_X2 = zeros(X2_cardinality, Y_cardinality);
     W_Y_X1_0_X2(1,:) = W_Y_X1_X2(1,:); % W_Y_X1_0_X2_0
     W_Y_X1_0_X2(2,:) = W_Y_X1_X2(2,:); % W_Y_X1_0_X2_1
@@ -282,10 +286,12 @@ for epoch = progress(1:N_epochs)
         disp(W_Y_X1_0_X2);
     end
     
-    W_Y_X1_0 = zeros(1, length(P_Y));
-    for y=1:length(W_Y_X1_0)
+    W_Y_X1_0 = zeros(1, Y_cardinality);
+    for y=1:Y_cardinality
         W_y_X1_0 = 0;
         for x2=1:length(P_X2)
+            W_y_X1_0 = W_y_X1_0 + P_X2(x2) * W_Y_X1_0_X2(x2,y);
+
             if DEBUG
                 disp('-----------------------------');
                 disp('P_X2 is: ');
@@ -299,10 +305,7 @@ for epoch = progress(1:N_epochs)
                 disp('W_Y_X1_0_X2(x2,y) is: ');
                 disp(W_Y_X1_0_X2(x2,y));
             end
-            W_y_X1_0 = W_y_X1_0 + P_X2(x2) * W_Y_X1_0_X2(x2,y);
-        end
-        if (W_y_X1_0 == 0)
-            W_y_X1_0 = 1e-3;
+            
         end
         W_Y_X1_0(y) = W_y_X1_0;
     end
@@ -314,35 +317,43 @@ for epoch = progress(1:N_epochs)
     r1 = CovertCommunication.covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, DEBUG);
     r1_vect(epoch) = r1;
     
-    W_Y_X1_X2_0 = zeros(X1_cardinality, Y_cardinality);
-    W_Y_X1_X2_0(1,:) = W_Y_X1_X2(1,:); % W_Y_X1_0_X2_0
-    W_Y_X1_X2_0(2,:) = W_Y_X1_X2(3,:); % W_Y_X1_1_X2_0
-    
-    W_Y_X1_X2_1 = zeros(X1_cardinality, Y_cardinality);
-    W_Y_X1_X2_1(1,:) = W_Y_X1_X2(2,:); % W_Y_X1_0_X2_1
-    W_Y_X1_X2_1(2,:) = W_Y_X1_X2(4,:); % W_Y_X1_1_X2_1
-
-    W_Y_X2 = zeros(X2_cardinality,Y_cardinality);
-
-    W_Y_X2_0 = zeros(1, Y_cardinality);
-    W_Y_X2_1 = zeros(1, Y_cardinality);
-    for y=1:Y_cardinality
-        W_y_X2_0 = 0;
-        W_y_X2_1 = 0;
-        for x1=1:X1_cardinality
-            W_y_X2_0 = W_y_X2_0 + P_X1(x1) * W_Y_X1_X2_0(x2,y);
-            W_y_X2_1 = W_y_X2_1 + P_X1(x1) * W_Y_X1_X2_1(x2,y);
-        end
-        W_Y_X2_0(y) = W_y_X2_0;
-        W_Y_X2_1(y) = W_y_X2_1;
-    end
-    W_Y_X2(1,:) = W_Y_X2_0;
-    W_Y_X2(2,:) = W_Y_X2_1;
-
-%     r2 = CovertCommunication.non_covert_rate(P_T, P_X2_mid_T, P_X2, W_Y_X2, Y_cardinality, DEBUG_covert); 
-    r2 = CovertCommunication.non_covert_rate(P_T, P_X2_mid_T, W_Y_X1_0, W_Y_X1_0_X2, DEBUG_covert);
+    r2 = CovertCommunication.non_covert_rate(P_T, P_X2_mid_T, W_Y_X1_0, W_Y_X1_0_X2, DEBUG);
     r2_vect(epoch) = r2;
+
+    rk = CovertCommunication.covert_sk_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, DEBUG);
+    rk_vect(epoch) = rk;
+
+    % if we compute the rate of the non covert user according to I(X2;Y \mid T)
+    if (use_mutual_info_without_x1_0)
+
+        W_Y_X1_X2_0 = zeros(X1_cardinality, Y_cardinality);
+        W_Y_X1_X2_0(1,:) = W_Y_X1_X2(1,:); % W_Y_X1_0_X2_0
+        W_Y_X1_X2_0(2,:) = W_Y_X1_X2(3,:); % W_Y_X1_1_X2_0
+        
+        W_Y_X1_X2_1 = zeros(X1_cardinality, Y_cardinality);
+        W_Y_X1_X2_1(1,:) = W_Y_X1_X2(2,:); % W_Y_X1_0_X2_1
+        W_Y_X1_X2_1(2,:) = W_Y_X1_X2(4,:); % W_Y_X1_1_X2_1
     
+        W_Y_X2 = zeros(X2_cardinality,Y_cardinality);
+    
+        W_Y_X2_0 = zeros(1, Y_cardinality);
+        W_Y_X2_1 = zeros(1, Y_cardinality);
+        for y=1:Y_cardinality
+            W_y_X2_0 = 0;
+            W_y_X2_1 = 0;
+            for x1=1:X1_cardinality
+                W_y_X2_0 = W_y_X2_0 + P_X1(x1) * W_Y_X1_X2_0(x2,y);
+                W_y_X2_1 = W_y_X2_1 + P_X1(x1) * W_Y_X1_X2_1(x2,y);
+            end
+            W_Y_X2_0(y) = W_y_X2_0;
+            W_Y_X2_1(y) = W_y_X2_1;
+        end
+        W_Y_X2(1,:) = W_Y_X2_0;
+        W_Y_X2(2,:) = W_Y_X2_1;
+    
+        r2 = CovertCommunication.non_covert_rate(P_T, P_X2_mid_T, P_X2, W_Y_X2, Y_cardinality, DEBUG_covert); 
+    end % end of if we compute the rate of the non covert user according to I(X2;Y \mid T)
+
     if DEBUG
         disp('For P_T: ');
         disp(P_T);
@@ -367,72 +378,35 @@ if length(r2_vect) > 1
     disp(['The number of time P_{X1}(1) >', num2str(max_P_X1_1), ' is: ', num2str(cpt_higher_than_max_P_X1_1), '. Which corresponds to a percentage of: ', num2str(100*cpt_higher_than_max_P_X1_1/N_epochs), '%']);  
     disp('--------------------------------------')
 
-
-    P = [r1_vect r2_vect];
-    [k,av] = convhull(P);
-
-    figure 
-    ax1 = nexttile;
-    scatter(ax1, P(:,1),P(:,2),'')
-    hold on
-    plot(ax1, P(k,1),P(k,2))
-    title(ax1,'Rate region');
-    xlabel(ax1,'Covert user rate');
-    ylabel(ax1,'Non-covert user rate');
+    if draw_convhull
+        P = [r1_vect r2_vect];
+        [k,av] = convhull(P);
+    
+        figure 
+        ax1 = nexttile;
+        scatter(ax1, P(:,1),P(:,2),'')
+        hold on
+        plot(ax1, P(k,1),P(k,2))
+        title(ax1,'Rate region');
+        xlabel(ax1,'Covert user rate');
+        ylabel(ax1,'Non-covert user rate');
+    end
 
     figure 
     ax2 = nexttile;
-    scatter(ax2, r1_vect, r2_vect,'r');
+    scatter(ax2, r1_vect, r2_vect,'black');
+    hold on
     title(ax2,'Rate region');
     xlabel(ax2,'Covert user rate');
     ylabel(ax2,'Non-covert user rate');
-% 
-%     scatter(ax1, r1_vect, r2_vect)
-%     hold on;
-% %     area(ax1, r1_vect, r2_vect)
-% %     hold off;
-%     title(ax1,'Rate region');
-%     xlabel(ax1,'Covert user rate');
-%     ylabel(ax1,'Non-covert user rate');
-%     hold on
-%     plot(px, py, 'LineWidth', 2);
-
-%     D = ndims(r2_vect) + 1;
-%     concatenated_rates_arr = cat(D,r1_vect,r2_vect);
-%     [min_rates, ind_min] = min(concatenated_rates_arr,[], D);
-%     [max_rates, ind_max] = max(concatenated_rates_arr,[],D);
-%     plot(ax1, concatenated_rates_arr(ind_min),min_rates,'o');
-%     plot(ax1, concatenated_rates_arr(ind_max),max_rates,'*');
-%     plot(ax1, r1_vect, 'b--o')
-%     plot(ax1,r2_vect, r1_vect, 'b--o');
-%     plot(ax1,r1_vect, r2_vect, 'b--o');
-
-%     disp(['min_rates: ', num2str(min_rates)]);
-%     disp(['ind_min: ', num2str(ind_min)]);
-%     disp(['max_rates: ', num2str(max_rates)]);
-%     disp(['ind_max: ', num2str(ind_max)]);
-
-    %gen xy spans
-%     temps=0:.1:100;
-%     press = 0:.1:100;
-%     [x, y] = meshgrid(temps,press);
-%     %generate the binary mask regions
-%     r1 = x.^2+y.^2<50;
-%     r2 = (x-50).^2+(y-75).^2<50^2;
-%     figure(1),imagesc(r1,'XData',temps, 'YData', press , 'AlphaData', r1)
-%     hold on
-%     imagesc(r2*2,'XData',temps, 'YData', press , 'AlphaData', r2) %r2 scaled to get different color
-%     colorbar 
-%     plot(temps,press.^2+4)
-%     plot(temps+50,(press-10).^3+4)
     
-
+    if (plot_3d)
+        figure 
+        ax3 = nexttile;
+        scatter3(ax3, r1_vect, r2_vect, rk_vect, 'red');
+        title(ax3,'Rate region');
+        xlabel(ax3,'Covert user rate');
+        ylabel(ax3,'Non-covert user rate');
+        zlabel(ax3,'Secret key rate');
+    end
 end
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Rate Region simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Steps to follow:
-% - define a simple channel
-% - verify the constaints (absolute continuity)
-% - compute the rate
-% - do a loop on P_T, P_{X2 \mid T}, P_{X1 \mid T} and \epsilon_T

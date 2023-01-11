@@ -78,7 +78,7 @@ classdef CovertCommunication
             tolerance = 1e-6;
             bool=1;
             for x2=1:X2_cardinality
-                
+
                 W_Y_X1_0_X2_x2 = W_Y_X1_0_X2(x2,:);
                 W_Y_X1_1_X2_x2 = W_Y_X1_1_X2(x2,:);
 
@@ -197,7 +197,7 @@ classdef CovertCommunication
             W_Y_X1_1_X2 = zeros(X2_cardinality,Y_cardinality);
             W_Z_X1_0_X2 = zeros(X2_cardinality,Y_cardinality);
             W_Z_X1_1_X2 = zeros(X2_cardinality,Y_cardinality);
-
+            
             if (X2_cardinality > 2)
                 % the channel matrix has 2*X2_cardinality lines from which 
                 % the first X2_cardinality lines are for X1=0
@@ -205,16 +205,14 @@ classdef CovertCommunication
 
                 % For X1=0
                 for x2=1:X2_cardinality
-                    W_Y_X1_0_X2(x2,:) = W_Y_X1_X2(x2,:);  % W_Y_X1_0_X2_x2
+                    W_Y_X1_0_X2(x2,:) = W_Y_X1_X2(1,:);  % W_Y_X1_0_X2_x2
                     W_Z_X1_0_X2(x2,:) = W_Z_X1_X2(x2,:); % W_Z_X1_0_X2_x2
                 end
                                 
                 % For X1=1
-                x2 = X2_cardinality+1;
-                for i=1:X2_cardinality
-                    W_Y_X1_1_X2(i,:) = W_Y_X1_X2(x2,:); % W_Y_X1_1_X2_x2
-                    W_Z_X1_1_X2(i,:) = W_Z_X1_X2(x2,:); % W_Z_X1_1_X2_x2
-                    x2 = x2 + 1;
+                for x2=X2_cardinality+1:X1_X2_cardinality
+                    W_Y_X1_1_X2(x2,:) = W_Y_X1_X2(x2,:); % W_Y_X1_1_X2_x2
+                    W_Z_X1_1_X2(x2,:) = W_Z_X1_X2(x2,:); % W_Z_X1_1_X2_x2
                 end
 
             else
@@ -249,7 +247,7 @@ classdef CovertCommunication
             end
             
         end
-        function r1 = covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG)
+        function r1 = covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, DEBUG)
             % Input:
             %   P_T             : a probabilities vector for the time sharing rv
             %   P_X2_mid_T      : conditional probability vector P_{X_2 \mid T}
@@ -271,14 +269,12 @@ classdef CovertCommunication
 
                 % For X1=0
                 for x2=1:X2_cardinality
-                    W_Y_X1_0_X2(x2,:) = W_Y_X1_X2(x2,:);  % W_Y_X1_0_X2_x2
+                    W_Y_X1_0_X2(x2,:) = W_Y_X1_X2(1,:);  % W_Y_X1_0_X2_x2
                 end
                                 
                 % For X1=1
-                x2 = X2_cardinality+1;
-                for i=1:X2_cardinality
-                    W_Y_X1_1_X2(i,:) = W_Y_X1_X2(x2,:); % W_Y_X1_1_X2_x2
-                    x2 = x2 + 1;
+                for x2=X2_cardinality+1:X1_X2_cardinality
+                    W_Y_X1_1_X2(x2,:) = W_Y_X1_X2(x2,:); % W_Y_X1_1_X2_x2
                 end
                 
             else               
@@ -305,30 +301,12 @@ classdef CovertCommunication
             
             W_Z_X1_0_X2 = zeros(X2_cardinality,Y_cardinality);
             W_Z_X1_1_X2 = zeros(X2_cardinality,Y_cardinality);
+            
+            W_Z_X1_0_X2(1,:) = W_Z_X1_X2(1,:); % W_Z_X1_0_X2_0
+            W_Z_X1_0_X2(2,:) = W_Z_X1_X2(2,:); % W_Z_X1_0_X2_1
 
-            if (X2_cardinality > 2)
-                % the channel matrix has 2*X2_cardinality lines from which 
-                % the first X2_cardinality lines are for X1=0
-                % followed by X2_cardinality lines for X1=1
-
-                % For X1=0
-                for x2=1:X2_cardinality
-                    W_Z_X1_0_X2(x2,:) = W_Z_X1_X2(x2,:);  % W_Z_X1_0_X2_x2
-                end
-                                
-                % For X1=1
-                x2 = X2_cardinality+1;
-                for i=1:X2_cardinality
-                    W_Z_X1_1_X2(i,:) = W_Z_X1_X2(x2,:); % W_Z_X1_1_X2_x2
-                    x2 = x2 + 1;
-                end                
-            else            
-                W_Z_X1_0_X2(1,:) = W_Z_X1_X2(1,:); % W_Z_X1_0_X2_0
-                W_Z_X1_0_X2(2,:) = W_Z_X1_X2(2,:); % W_Z_X1_0_X2_1
-    
-                W_Z_X1_1_X2(1,:) = W_Z_X1_X2(3,:); % W_Z_X1_1_X2_0
-                W_Z_X1_1_X2(2,:) = W_Z_X1_X2(4,:); % W_Z_X1_1_X2_1
-            end
+            W_Z_X1_1_X2(1,:) = W_Z_X1_X2(3,:); % W_Z_X1_1_X2_0
+            W_Z_X1_1_X2(2,:) = W_Z_X1_X2(4,:); % W_Z_X1_1_X2_1
 
             for x2=1:X2_cardinality
                 W_Z_X1_0_X2_x2 = W_Z_X1_0_X2(x2,:);
@@ -359,7 +337,7 @@ classdef CovertCommunication
 
         end % end covert_message_rate
 
-        function rk = covert_sk_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG)
+        function rk = covert_sk_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, DEBUG)
             % Input:
             %   P_T             : a probabilities vector for the time sharing rv
             %   P_X2_given_T    : conditional probability vector P_{X_2 \mid T}
@@ -377,40 +355,20 @@ classdef CovertCommunication
             % Bob's channel
             W_Y_X1_0_X2 = zeros(X2_cardinality,Y_cardinality);
             W_Y_X1_1_X2 = zeros(X2_cardinality,Y_cardinality);
+
+            W_Y_X1_0_X2(1,:) = W_Y_X1_X2(1,:); % W_Y_X1_0_X2_0
+            W_Y_X1_0_X2(2,:) = W_Y_X1_X2(2,:); % W_Y_X1_0_X2_1
+            W_Y_X1_1_X2(1,:) = W_Y_X1_X2(3,:); % W_Y_X1_1_X2_0
+            W_Y_X1_1_X2(2,:) = W_Y_X1_X2(4,:); % W_Y_X1_1_X2_1
+            
             % Eve's channel
             W_Z_X1_0_X2 = zeros(X2_cardinality,Y_cardinality);
             W_Z_X1_1_X2 = zeros(X2_cardinality,Y_cardinality);
-
-            if (X2_cardinality > 2)
-                % the channel matrix has 2*X2_cardinality lines from which 
-                % the first X2_cardinality lines are for X1=0
-                % followed by X2_cardinality lines for X1=1
-
-                % For X1=0
-                for x2=1:X2_cardinality
-                    W_Y_X1_0_X2(x2,:) = W_Y_X1_X2(x2,:);  % W_Y_X1_0_X2_x2
-                    W_Z_X1_0_X2(x2,:) = W_Z_X1_X2(x2,:); % W_Z_X1_0_X2_x2
-                end
-                                
-                % For X1=1
-                x2 = X2_cardinality+1;
-                for i=1:X2_cardinality
-                    W_Y_X1_1_X2(i,:) = W_Y_X1_X2(x2,:); % W_Y_X1_1_X2_x2
-                    W_Z_X1_1_X2(i,:) = W_Z_X1_X2(x2,:); % W_Z_X1_1_X2_x2
-                    x2 = x2 + 1;
-                end
-
-            else
-                W_Y_X1_0_X2(1,:) = W_Y_X1_X2(1,:); % W_Y_X1_0_X2_0
-                W_Y_X1_0_X2(2,:) = W_Y_X1_X2(2,:); % W_Y_X1_0_X2_1
-                W_Y_X1_1_X2(1,:) = W_Y_X1_X2(3,:); % W_Y_X1_1_X2_0
-                W_Y_X1_1_X2(2,:) = W_Y_X1_X2(4,:); % W_Y_X1_1_X2_1
-                
-                W_Z_X1_0_X2(1,:) = W_Z_X1_X2(1,:); % W_Z_X1_0_X2_0
-                W_Z_X1_0_X2(2,:) = W_Z_X1_X2(2,:); % W_Z_X1_0_X2_1
-                W_Z_X1_1_X2(1,:) = W_Z_X1_X2(3,:); % W_Z_X1_1_X2_0
-                W_Z_X1_1_X2(2,:) = W_Z_X1_X2(4,:); % W_Z_X1_1_X2_1
-            end
+            
+            W_Z_X1_0_X2(1,:) = W_Z_X1_X2(1,:); % W_Z_X1_0_X2_0
+            W_Z_X1_0_X2(2,:) = W_Z_X1_X2(2,:); % W_Z_X1_0_X2_1
+            W_Z_X1_1_X2(1,:) = W_Z_X1_X2(3,:); % W_Z_X1_1_X2_0
+            W_Z_X1_1_X2(2,:) = W_Z_X1_X2(4,:); % W_Z_X1_1_X2_1
 
             for x2=1:X2_cardinality
                 % Bob
@@ -470,7 +428,9 @@ classdef CovertCommunication
                 rk = 0; 
             end
 
-        end % end covert_sk_rate        
+        end % end covert_sk_rate
+
+        
 
         function r2 = non_covert_rate(P_T, P_X2_mid_T, W_Y_X1_0, W_Y_X1_0_X2, DEBUG)
             % Input:
@@ -483,11 +443,8 @@ classdef CovertCommunication
             %   The rate of the non-covert user U2
             % R_2 = \sum_{(t,x_2)} p(t)p(x_2 \mid t) \mathbb{D}(W_{Y \mid X_1, X_2}(\cdot \mid X_1=0, X_2=x_2) \| W_{Y \mid X_1}(\cdot \mid X_1=0))
             
-            
-            X2_cardinality = length(W_Y_X1_0_X2(:,1));
-            relative_entropy_vect = zeros(X2_cardinality,1);
-            
-            for x2=1:X2_cardinality
+            relative_entropy_vect = zeros(2,1);
+            for x2=1:2
                 W_Y_X1_0_X2_x2 = W_Y_X1_0_X2(x2,:);
                 relative_entropy = InformationTheory.relative_entropy(W_Y_X1_0_X2_x2, W_Y_X1_0);
                 relative_entropy_vect(x2) = relative_entropy;
@@ -525,6 +482,35 @@ classdef CovertCommunication
                     end
                 end
             end
+        end % end non covert rate
+
+        function r2 = old_non_covert_rate(P_T, P_X2, P_Y, W_Y_X1_0, W_Y_X1_0_X2)
+            % Input:
+            %   P_T             : a probabilities vector for the time sharing rv
+            %   P_X2            : a probabilities vector for the input X_2 rv
+            %   P_Y             : a probabilities vector for the output Y rv
+            %   W_Y_X1_0_X2     : channel law of the legitimate user W_{Y \mid X_1=0, X_2}
+            % Output:
+            %   The rate of the non-covert user U2
+            % R_2 \leq I(X_2;Y \mid X_1=0, T) = \sum_{t} p(t) \left[ - \sum_{x_2} p(x_2) \log(p(x_2 \mid t)) 
+            %                                  + \sum_{(x_2,y)} p(x_2)p(y) \log(p(x_2 \mid t)) \right ]
+            % By continuity it's also = I(X_2;Y \mid T). We use the later
+            % as it's simpler.
+
+            sum_one = -dot(P_Y, log2(W_Y_X1_0));
+            %sum_two_y = dot(P_Y,log2(W_Y_X1_0_X2)) ;
+            %sum_two = dot(P_X2, sum_two_y);
+
+            sum_two = 0;
+            for i=1:length(P_X2)
+                for j=1:length(P_Y)
+                     sum_two =  sum_two + P_X2(i)*P_Y(j)*log2(W_Y_X1_0_X2(i*j));
+                end
+            end
+            disp(sum_one);
+            disp(sum_two);
+            
+            r2 = dot(P_T, sum_one+sum_two);
         end % end non covert rate
 
     end % end methods

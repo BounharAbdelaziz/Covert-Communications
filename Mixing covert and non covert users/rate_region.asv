@@ -15,7 +15,7 @@ clear
 T_cardinality                   = 4;
 uniform_P_T                     = 0;
 %(need to be done on the same seed in order to compare) This will swap the channel of eve and bob, so that the difference in relative entropies becoms negative.
-swap_channels_for_need_sk       = 0 ; 
+swap_channels_for_need_sk       = 0; 
 
 % channel parameters
 X1_cardinality                  = 2;
@@ -27,10 +27,10 @@ pw                              = 0.1;
 pw_eve                          = 0.15;
 
 % simulations parameters
-N_epochs                        = 200;
+N_epochs                        = 100;
 max_epsilon_t                   = 1;
 optimize_epsilons_T             = 1;
-generate_random_channel_laws    = 1;
+generate_random_channel_laws    = 0;
 % covert region
 draw_covert_point               = 0;
 draw_convhull                   = 0;
@@ -50,7 +50,7 @@ tolerance                       = 1e-6;
 DEBUG                           = 0;
 DEBUG_covert                    = 0;
 DEBUG_covert_theorem_contraints = 1;
-cpt=0;
+cpt                             = 0;
 % for fixed epsilon_T
 if (ismembertol(optimize_epsilons_T, 0, tolerance))
     disp('[INFO] Running experiment with fixed Epsilon_T')
@@ -94,12 +94,17 @@ if (ismembertol(generate_random_channel_laws, 1, tolerance))
     while (verified_conditions < 1)
         P_T                 = InformationTheory.generate_probability_vector(T_cardinality,1,1,0,1);
         Epsilon_T           = max_epsilon_t*rand(T_cardinality,1);
-        P_X2_0_mid_T        = rand(T_cardinality,1);
-        P_X2_1_mid_T        = 1-P_X2_0_mid_T;
-        P_X2_mid_T          = zeros(X2_cardinality,T_cardinality);
-        for t=1:T_cardinality
-            P_X2_mid_T(1,t)     = P_X2_0_mid_T(t); % P_X1_mid_T(0|t)
-            P_X2_mid_T(2,t)     = P_X2_1_mid_T(t); % P_X2_mid_T(1|t)
+        
+        if (X2_cardinality > 2)
+            P_X2_mid_T = InformationTheory.generate_probability_vector(X2_cardinality, T_cardinality,1,0,1);
+        else
+            P_X2_0_mid_T        = rand(T_cardinality,1);
+            P_X2_1_mid_T        = 1-P_X2_0_mid_T;
+            P_X2_mid_T          = zeros(X2_cardinality,T_cardinality);
+            for t=1:T_cardinality
+                P_X2_mid_T(1,t)     = P_X2_0_mid_T(t); % P_X1_mid_T(0|t)
+                P_X2_mid_T(2,t)     = P_X2_1_mid_T(t); % P_X2_mid_T(1|t)
+            end
         end
         W_Y_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1)); %generate_random_channel_matrix
         W_Z_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1)); %generate_random_channel_matrix
@@ -137,7 +142,6 @@ else
     W_Z_X1_X2(4,:) = W_Z_X1_1_X2_1;
 
     [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, DEBUG_covert_theorem_contraints);
-%     verified_conditions =1;
 
     if (verified_conditions < 1)
         disp('[ERROR-Constraint] Absolute continuity is not met! Check bellow which one you need to fix.');
@@ -208,19 +212,26 @@ for epoch = progress(1:N_epochs)
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Conditional input disbutions P_X1_mid_T and P_X2_mid_T %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    P_X1_mid_T          = zeros(2,T_cardinality);
+    if (X2_cardinality > 2)
+        P_X1_mid_T = InformationTheory.generate_probability_vector(X2_cardinality, T_cardinality,1,0,1);
+    else
+        P_X1_mid_T          = zeros(2,T_cardinality);
+        P_X2_mid_T          = zeros(X2_cardinality,T_cardinality);
+        
+        for t=1:T_cardinality
+            
+        end
+        for t=1:T_cardinality
+            P_X1_mid_T(1,t)     = P_X1_0_mid_T(1); % P_X1_mid_T(0|t)
+            P_X1_mid_T(2,t)     = P_X1_1_mid_T(1); % P_X1_mid_T(1|t)
 
-    for t=1:T_cardinality
-        P_X1_mid_T(1,t)     = P_X1_0_mid_T(1); % P_X1_mid_T(0|t)
-        P_X1_mid_T(2,t)     = P_X1_1_mid_T(1); % P_X1_mid_T(1|t)
+            P_X2_mid_T(1,t)     = P_X2_0_mid_T(t); % P_X1_mid_T(0|t)
+            P_X2_mid_T(2,t)     = P_X2_1_mid_T(t); % P_X2_mid_T(1|t)
+        end
     end
     
-    P_X2_mid_T          = zeros(X2_cardinality,T_cardinality);
-
-    for t=1:T_cardinality
-        P_X2_mid_T(1,t)     = P_X2_0_mid_T(t); % P_X1_mid_T(0|t)
-        P_X2_mid_T(2,t)     = P_X2_1_mid_T(t); % P_X2_mid_T(1|t)
-    end
+    
+    
 
 % %     P_X1_mid_T(1,1)     = P_X1_0_mid_T(1); % P_X1_mid_T(0|0)
 % %     P_X1_mid_T(1,2)     = P_X1_0_mid_T(2); % P_X1_mid_T(0|1)
@@ -234,7 +245,7 @@ for epoch = progress(1:N_epochs)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Verify if conditions are met with these choices %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    verified_conditions = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, T_cardinality, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, DEBUG_covert_theorem_contraints);
+    [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, T_cardinality, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, DEBUG_covert_theorem_contraints);
 
     if (verified_conditions < 1)
         cpt = cpt+1;
@@ -341,13 +352,13 @@ for epoch = progress(1:N_epochs)
         disp('W_Y_X1_0 is: ');
         disp(W_Y_X1_0);
     end
-    r1 = CovertCommunication.covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, 1);
+    r1 = CovertCommunication.covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, DEBUG_covert);
     r1_vect(epoch) = r1;
     
     r2 = CovertCommunication.non_covert_rate(P_T, P_X2_mid_T, W_Y_X1_0, W_Y_X1_0_X2, DEBUG);
     r2_vect(epoch) = r2;
 
-    rk = CovertCommunication.covert_sk_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, DEBUG);
+    rk = CovertCommunication.covert_sk_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, DEBUG_covert);
     rk_vect(epoch) = rk;
     
     if draw_covert_point

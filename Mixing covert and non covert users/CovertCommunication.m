@@ -124,8 +124,8 @@ classdef CovertCommunication
             %   Checks if D(W_Y_X1_1_X2 \mid W_Y_X1_0_X2) >= D(W_Z_X1_1_X2 \mid W_Z_X1_0_X2) on average over P_T \epsilon_T (for now
             %   checks only if the two divergences (for each x2) are positive as we cannot do the average)
 
-            relative_entropy_bob_vect = zeros(2,1);
-            relative_entropy_eve_vect = zeros(2,1);
+            relative_entropy_bob_vect = zeros(X2_cardinality,1);
+            relative_entropy_eve_vect = zeros(X2_cardinality,1);
             
             for x2=1:X2_cardinality
 
@@ -184,12 +184,10 @@ classdef CovertCommunication
                 without_secret_key = 1;
             else
                 without_secret_key = 0;
-            end
-
-            
+            end            
         end %end check without secret key condition
         
-        function [bool, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG)
+        function [bool, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, X1_X2_cardinality, swap_channels_for_need_sk, DEBUG)
             tolerance = 1e-8;
             bool = 0;
             % extracting laws
@@ -234,9 +232,12 @@ classdef CovertCommunication
             absolute_continuity_bob = CovertCommunication.check_absolute_continuity(W_Y_X1_1_X2, W_Y_X1_0_X2, X2_cardinality, DEBUG);
             absolute_continuity_eve = CovertCommunication.check_absolute_continuity(W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG);
             different_output_distributions_eve = CovertCommunication.check_different_distributions(W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG);
-
-            without_secret_key_condition = CovertCommunication.without_secret_key_condition(P_T, Epsilon_T, P_X2_mid_T, W_Y_X1_0_X2, W_Y_X1_1_X2, W_Z_X1_0_X2, W_Z_X1_1_X2, X2_cardinality, DEBUG);
-
+            
+            if (swap_channels_for_need_sk)
+                without_secret_key_condition = 1;
+            else
+                without_secret_key_condition = CovertCommunication.without_secret_key_condition(P_T, Epsilon_T, P_X2_mid_T, W_Y_X1_0_X2, W_Y_X1_1_X2, W_Z_X1_0_X2, W_Z_X1_1_X2, X2_cardinality, DEBUG);
+            end
             if (ismembertol(absolute_continuity_bob, 1, tolerance) && ismembertol(absolute_continuity_eve, 1, tolerance) && ismembertol(different_output_distributions_eve, 1, tolerance) && ismembertol(without_secret_key_condition, 1, tolerance))
                 bool = 1;
             end
@@ -486,7 +487,7 @@ classdef CovertCommunication
             
             X2_cardinality = length(W_Y_X1_0_X2(:,1));
             relative_entropy_vect = zeros(X2_cardinality,1);
-            
+
             for x2=1:X2_cardinality
                 W_Y_X1_0_X2_x2 = W_Y_X1_0_X2(x2,:);
                 relative_entropy = InformationTheory.relative_entropy(W_Y_X1_0_X2_x2, W_Y_X1_0);

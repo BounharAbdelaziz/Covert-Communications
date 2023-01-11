@@ -19,7 +19,7 @@ swap_channels_for_need_sk       = 1;
 
 % channel parameters
 X1_cardinality                  = 2;
-X2_cardinality                  = 10;
+X2_cardinality                  = 7;
 X1_X2_cardinality               = X1_cardinality*X2_cardinality; % cartesian product
 Y_cardinality                   = X1_X2_cardinality;
 compute_marginal_PY             = 0;
@@ -28,7 +28,7 @@ pw                              = 0.1;
 pw_eve                          = 0.15;
 
 % simulations parameters
-N_epochs                        = 100000;
+N_epochs                        = 100;
 max_epsilon_t                   = 1;
 optimize_epsilons_T             = 1;
 generate_random_channel_laws    = 1;
@@ -89,7 +89,7 @@ if (ismembertol(generate_random_channel_laws, 1, tolerance))
 
     W_Y_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1)); % InformationTheory.generate_random_channel_matrix(m, n, smallest_poba_value_bob);
     W_Z_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1)); % InformationTheory.generate_random_channel_matrix(m, n, smallest_poba_value_eve);
-    verified_conditions = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG_covert_theorem_contraints);
+    verified_conditions = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, X1_X2_cardinality, swap_channels_for_need_sk, DEBUG_covert_theorem_contraints);
       
     % loop while untill constraint on absolute continuity and difference are met 
     while (verified_conditions < 1)
@@ -109,7 +109,7 @@ if (ismembertol(generate_random_channel_laws, 1, tolerance))
         end
         W_Y_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1)); %generate_random_channel_matrix
         W_Z_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1)); %generate_random_channel_matrix
-        verified_conditions = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG_covert_theorem_contraints);
+        verified_conditions = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, X1_X2_cardinality, swap_channels_for_need_sk, DEBUG_covert_theorem_contraints);
     end
 else
     % Binary noise rv follows a bernoulli distribution    
@@ -142,7 +142,7 @@ else
     W_Z_X1_X2(3,:) = W_Z_X1_1_X2_0;
     W_Z_X1_X2(4,:) = W_Z_X1_1_X2_1;
 
-    [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, DEBUG_covert_theorem_contraints);
+    [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, swap_channels_for_need_sk, DEBUG_covert_theorem_contraints);
 
     if (verified_conditions < 1)
         disp('[ERROR-Constraint] Absolute continuity is not met! Check bellow which one you need to fix.');
@@ -208,10 +208,11 @@ for epoch = progress(1:N_epochs)
     P_X1_0_mid_T        = rand(T_cardinality,1); % [P_X1_mid_T(0|1) P_X1_mid_T(0|2) P_X1_mid_T(0|3) P_X1_mid_T(0|4)] 
     P_X1_1_mid_T        = 1 - P_X1_0_mid_T; % [P_X1_mid_T(1|1) P_X1_mid_T(1|2) P_X1_mid_T(1|3) P_X1_mid_T(1|4)]
     
-    % Binary alphabet for the non covert user, we define the conditional distribution P_{X_1 \mid T}
-    P_X2_0_mid_T        = rand(T_cardinality,1); % [P_X2_mid_T(0|0) P_X2_mid_T(0|1) P_X2_mid_T(0|2) P_X2_mid_T(0|3)]
-    P_X2_1_mid_T        = 1 - P_X2_0_mid_T; % [P_X2_mid_T(1|0) P_X2_mid_T(1|1) P_X2_mid_T(1|2) P_X2_mid_T(1|3)]
-    
+    if (X2_cardinality < 2)
+        % Binary alphabet for the non covert user, we define the conditional distribution P_{X_1 \mid T}
+        P_X2_0_mid_T        = rand(T_cardinality,1); % [P_X2_mid_T(0|0) P_X2_mid_T(0|1) P_X2_mid_T(0|2) P_X2_mid_T(0|3)]
+        P_X2_1_mid_T        = 1 - P_X2_0_mid_T; % [P_X2_mid_T(1|0) P_X2_mid_T(1|1) P_X2_mid_T(1|2) P_X2_mid_T(1|3)]
+    end
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Conditional input disbutions P_X1_mid_T and P_X2_mid_T %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
     if (X2_cardinality > 2)
@@ -222,8 +223,8 @@ for epoch = progress(1:N_epochs)
         P_X2_mid_T          = zeros(X2_cardinality,T_cardinality);
 
         for t=1:T_cardinality
-            P_X1_mid_T(1,t)     = P_X1_0_mid_T(1); % P_X1_mid_T(0|t)
-            P_X1_mid_T(2,t)     = P_X1_1_mid_T(1); % P_X1_mid_T(1|t)
+            P_X1_mid_T(1,t)     = P_X1_0_mid_T(t); % P_X1_mid_T(0|t)
+            P_X1_mid_T(2,t)     = P_X1_1_mid_T(t); % P_X1_mid_T(1|t)
 
             P_X2_mid_T(1,t)     = P_X2_0_mid_T(t); % P_X2_mid_T(0|t)
             P_X2_mid_T(2,t)     = P_X2_1_mid_T(t); % P_X2_mid_T(1|t)
@@ -242,7 +243,7 @@ for epoch = progress(1:N_epochs)
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Verify if conditions are met with these choices %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, T_cardinality, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG_covert_theorem_contraints);
+    [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, T_cardinality, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, X1_X2_cardinality, swap_channels_for_need_sk, DEBUG_covert_theorem_contraints);
 
     if (verified_conditions < 1)
         cpt = cpt+1;
@@ -431,6 +432,8 @@ if length(r2_vect) > 1
         disp('--------------------------------------')
     end
     disp(['The number of time P_{X1}(1) >', num2str(max_P_X1_1), ' is: ', num2str(cpt_higher_than_max_P_X1_1), '. Which corresponds to a percentage of: ', num2str(100*cpt_higher_than_max_P_X1_1/N_epochs), '%']);  
+    disp('--------------------------------------')
+     disp(['The number of time if did not verfiy the theorem conditions is: ', num2str(cpt), '. Which corresponds to a percentage of: ', num2str(100*cpt/N_epochs), '%']);  
     disp('--------------------------------------')
 
     if draw_convhull

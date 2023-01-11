@@ -5,37 +5,43 @@
 % - compute the rate
 % - do a loop on P_T, P_{X2 \mid T}, P_{X1 \mid T} and \epsilon_T
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+clear
 % seed for reproducibility
 % seed                            = 1998;
 % rng(seed);
 
 % for simulation
 % \matchal{T} is of cardinality 4
-T_cardinality                   = 3;
+T_cardinality                   = 4;
 uniform_P_T                     = 0;
+%(need to be done on the same seed in order to compare) This will swap the channel of eve and bob, so that the difference in relative entropies becoms negative.
+swap_channels_for_need_sk       = 0 ; 
 
 % channel parameters
 X1_cardinality                  = 2;
 X2_cardinality                  = 2;
-X1_X2_cardinality               = 4;
+X1_X2_cardinality               = 4; % X1_cardinality*X2_cardinality; % cartesian product
 Y_cardinality                   = 4;
 % noise probabilities
 pw                              = 0.1;
 pw_eve                          = 0.15;
 
 % simulations parameters
-N_epochs                        = 100000;
+N_epochs                        = 200;
 max_epsilon_t                   = 1;
 optimize_epsilons_T             = 1;
-generate_random_channel_laws    = 0;
+generate_random_channel_laws    = 1;
+% covert region
+draw_covert_point               = 0;
+draw_convhull                   = 0;
+plot_3d                         = 1;
+
 % maximum value of P_{X1}(1)
 max_P_X1_1                      = 1;
 cpt_higher_than_max_P_X1_1      = 0;
 % if we compute the rate of the non covert user according to I(X2;Y \mid T)
 use_mutual_info_without_x1_0    = 0;
-draw_convhull                   = 0;
-plot_3d                         = 1;
+
 
 % error in the if conditions (1==1.00)
 tolerance                       = 1e-6;
@@ -43,10 +49,8 @@ tolerance                       = 1e-6;
 % Prints if debug mode
 DEBUG                           = 0;
 DEBUG_covert                    = 0;
-DEBUG_covert_theorem_contraints = 0;
-
-
-
+DEBUG_covert_theorem_contraints = 1;
+cpt=0;
 % for fixed epsilon_T
 if (ismembertol(optimize_epsilons_T, 0, tolerance))
     disp('[INFO] Running experiment with fixed Epsilon_T')
@@ -54,6 +58,17 @@ if (ismembertol(optimize_epsilons_T, 0, tolerance))
 else
     disp('[INFO] Running experiment with different Epsilon_T')
 end
+
+if swap_channels_for_need_sk
+    need_sk = ' when we need a sk';
+else
+    need_sk = ' when we do not need a sk';
+end
+
+title_plot = ['Rate region when cardinality of T is ' , num2str(T_cardinality), ' and cardinality of Y is ', num2str(Y_cardinality), need_sk];
+x_title = 'Covert user square-root rate';
+y_title = 'Non-Covert user rate';
+z_title = 'Secret-Key square-root rate';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fix the channel law %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -122,7 +137,7 @@ else
     W_Z_X1_X2(4,:) = W_Z_X1_1_X2_1;
 
     [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, DEBUG_covert_theorem_contraints);
-    verified_conditions =1;
+%     verified_conditions =1;
 
     if (verified_conditions < 1)
         disp('[ERROR-Constraint] Absolute continuity is not met! Check bellow which one you need to fix.');
@@ -151,6 +166,17 @@ r2_vect = zeros(N_epochs,1);
 
 % Secret key rates
 rk_vect = zeros(N_epochs,1);
+
+% covert region
+if draw_covert_point
+    covert_points = zeros(N_epochs,1);
+end
+
+if (swap_channels_for_need_sk)
+    swap = W_Z_X1_X2;
+    W_Z_X1_X2 = W_Y_X1_X2;
+    W_Y_X1_X2 = swap;
+end
 
 % iterate over all input distributions.
 for epoch = progress(1:N_epochs)
@@ -211,6 +237,7 @@ for epoch = progress(1:N_epochs)
     verified_conditions = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, T_cardinality, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, DEBUG_covert_theorem_contraints);
 
     if (verified_conditions < 1)
+        cpt = cpt+1;
         continue % go to next iteration
     end
     
@@ -220,7 +247,7 @@ for epoch = progress(1:N_epochs)
     
     for x1=1:X1_cardinality
         avg = 0;
-        for t=1:length(P_X2_mid_T)
+        for t=1:T_cardinality
             avg = avg + P_X1_mid_T(x1,t) * P_T(t);
         end
         P_X1(x1) = avg;
@@ -239,8 +266,8 @@ for epoch = progress(1:N_epochs)
     P_X2                = zeros(1,X2_cardinality);
     for i=1:X2_cardinality
         avg = 0;
-        for j=1:length(P_X2_mid_T)
-            avg = avg + P_X2_mid_T(i,j) * P_T(j);
+        for t=1:T_cardinality
+            avg = avg + P_X2_mid_T(i,t) * P_T(t);
         end
         P_X2(i) = avg;
     end
@@ -314,7 +341,7 @@ for epoch = progress(1:N_epochs)
         disp('W_Y_X1_0 is: ');
         disp(W_Y_X1_0);
     end
-    r1 = CovertCommunication.covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, DEBUG);
+    r1 = CovertCommunication.covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, 1);
     r1_vect(epoch) = r1;
     
     r2 = CovertCommunication.non_covert_rate(P_T, P_X2_mid_T, W_Y_X1_0, W_Y_X1_0_X2, DEBUG);
@@ -322,7 +349,11 @@ for epoch = progress(1:N_epochs)
 
     rk = CovertCommunication.covert_sk_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, DEBUG);
     rk_vect(epoch) = rk;
-
+    
+    if draw_covert_point
+        covert_point = CovertCommunication.compute_covert_point(P_T, P_X2_mid_T, Epsilon_T, W_Z_X1_X2, X2_cardinality, Y_cardinality, DEBUG);
+        covert_points(epoch) = covert_point;
+    end
     % if we compute the rate of the non covert user according to I(X2;Y \mid T)
     if (use_mutual_info_without_x1_0)
 
@@ -375,38 +406,66 @@ if length(r2_vect) > 1
     disp(['The minimum non covert rate r2 is: ', num2str(min_r2)]);
     disp(['The maximum non covert rate r2 is: ', num2str(max_r2)]); 
     disp('--------------------------------------')
+
+    if draw_covert_point
+        max_covert_point = max(covert_points);
+        min_covert_point = min(covert_points);
+        disp(['The minimum point is: ', num2str(min_covert_point)]);
+        disp(['The maximum point is: ', num2str(max_covert_point)]);
+        disp('--------------------------------------')
+    end
     disp(['The number of time P_{X1}(1) >', num2str(max_P_X1_1), ' is: ', num2str(cpt_higher_than_max_P_X1_1), '. Which corresponds to a percentage of: ', num2str(100*cpt_higher_than_max_P_X1_1/N_epochs), '%']);  
     disp('--------------------------------------')
 
     if draw_convhull
         P = [r1_vect r2_vect];
         [k,av] = convhull(P);
-    
+        
         figure 
         ax1 = nexttile;
         scatter(ax1, P(:,1),P(:,2),'')
         hold on
         plot(ax1, P(k,1),P(k,2))
-        title(ax1,'Rate region');
-        xlabel(ax1,'Covert user rate');
-        ylabel(ax1,'Non-covert user rate');
+        title(ax1,title_plot);
+        xlabel(ax1,x_title);
+        ylabel(ax1,y_title);
     end
 
     figure 
     ax2 = nexttile;
     scatter(ax2, r1_vect, r2_vect,'black');
     hold on
-    title(ax2,'Rate region');
-    xlabel(ax2,'Covert user rate');
-    ylabel(ax2,'Non-covert user rate');
+    
+
+    ax4 = nexttile;
+    scatter(ax4, rk_vect, r1_vect, 'black');
+    hold on
+    xlabel(ax4,'sk rate');
+    ylabel(ax4,'covert rate');
+
+    ax5 = nexttile;
+    scatter(ax5, rk_vect, r2_vect, 'black');
+    hold on
+    xlabel(ax5,'sk rate');
+    ylabel(ax5,'non-covert rate');
+    
+    % the maximum covert point, points after that one are not achievable
+    % without a secret key!
+    if draw_covert_point
+        xline(max_covert_point, 'red')
+        xline(min_covert_point, 'red')
+    end
+    title(ax2, title_plot);
+    xlabel(ax2,x_title);
+    ylabel(ax2,y_title);
     
     if (plot_3d)
         figure 
         ax3 = nexttile;
         scatter3(ax3, r1_vect, r2_vect, rk_vect, 'red');
-        title(ax3,'Rate region');
-        xlabel(ax3,'Covert user rate');
-        ylabel(ax3,'Non-covert user rate');
-        zlabel(ax3,'Secret key rate');
+        title(ax3,title_plot);
+        xlabel(ax3,x_title);
+        ylabel(ax3,y_title);
+        zlabel(ax3,z_title);
     end
 end

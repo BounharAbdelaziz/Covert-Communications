@@ -5,23 +5,67 @@ classdef CovertCommunication
         function DEBUG = set_debug(debug)
             CovertCommunication.DEBUG =debug;
         end
+           
+        function covert_point = compute_covert_point(P_T, P_X2_mid_T, Epsilon_T, W_Z_X1_X2, X2_cardinality, Y_cardinality, DEBUG)
+            % Input:
+            %   P_T             : a probabilities vector for the time sharing rv
+            %   P_X2_given_T    : conditional probability vector P_{X_2 \mid T}
+            %   epsilons        : vector of \epsilon_{t} values 
+            %   W_Y_X1_X2       : channel law of the legitimate user W_{Y \mid X_1, X_2}
+            %   W_Z_X1_X2       : channel law of the adversary W_{Z \mid X_1, X_2}
+            % Output:
+            %   The secret key rate
 
-        function covert_point = compute_covert_point(W_Z_X1_X2, rhos_star, n_users, Y_cardinality)
+            % We first compute the relative entropy for all X_2 for the legitimate user --------------------------------------------------------
+            relative_entropy_vect   = zeros(X2_cardinality,1);
             
-            Q1 = W_Z_X1_X2(3,:);
-            Q2 = W_Z_X1_X2(2,:);
-            Q0 = W_Z_X1_X2(1,:);
-
-            Q = zeros(n_users, Y_cardinality);
-            Q(1,:) = Q1;
-            Q(2,:) = Q2;
-
-            relative_entropy_Q1_Q0 = InformationTheory.relative_entropy(Q1, Q0);
+            % Eve's channel
+            W_Z_X1_0_X2 = zeros(X2_cardinality,Y_cardinality);
+            W_Z_X1_1_X2 = zeros(X2_cardinality,Y_cardinality);
             
-            chi_2_distance = CovertCommunication.chi_2_distance_bloch(Q, Q0, rhos_star);
-             
-            ratio = sqrt(2)/chi_2_distance;
-            covert_point = ratio * rhos_star(1) * relative_entropy_Q1_Q0;
+            W_Z_X1_0_X2(1,:) = W_Z_X1_X2(1,:); % W_Z_X1_0_X2_0
+            W_Z_X1_0_X2(2,:) = W_Z_X1_X2(2,:); % W_Z_X1_0_X2_1
+            W_Z_X1_1_X2(1,:) = W_Z_X1_X2(3,:); % W_Z_X1_1_X2_0
+            W_Z_X1_1_X2(2,:) = W_Z_X1_X2(4,:); % W_Z_X1_1_X2_1
+
+            for x2=1:X2_cardinality                
+                % Eve
+                W_Z_X1_0_X2_x2 = W_Z_X1_0_X2(x2,:);
+                W_Z_X1_1_X2_x2 = W_Z_X1_1_X2(x2,:);
+                relative_entropy_eve = InformationTheory.relative_entropy(W_Z_X1_1_X2_x2, W_Z_X1_0_X2_x2);
+                relative_entropy_vect(x2) = relative_entropy_eve;
+            end
+
+            % Then, we compute the chi_2 distance for all X_2 for Eve's channel --------------------------------------------------------
+            chi_2_vect = zeros(X2_cardinality,1);
+            
+            for x2=1:X2_cardinality
+                W_Z_X1_0_X2_x2 = W_Z_X1_0_X2(x2,:);
+                W_Z_X1_1_X2_x2 = W_Z_X1_1_X2(x2,:);
+                chi_2 = InformationTheory.chi_k_distance(W_Z_X1_1_X2_x2, W_Z_X1_0_X2_x2, 2);
+                chi_2_vect(x2) = chi_2;
+            end
+            if DEBUG
+                disp('chi_2_vect is: ');
+                disp(chi_2_vect)
+            end
+            % Finaly, we compute the average of the nominator and denominator w.r.t P_T and P_{X_2 \mid T} --------------------------------------------------------
+            avg_nominator = 0;
+            avg_denominator = 0;
+            for t=1:length(P_T)
+                % computing the averages of the relative entropy and chi_2 for a fixed t
+                average_relative_entropy_fixed_t = dot(P_X2_mid_T(:,t), relative_entropy_vect);
+                average_chi_2_fixed_t = dot(P_X2_mid_T(:,t), chi_2_vect);
+                
+                % taking the average over T
+                avg_nominator = avg_nominator + P_T(t)*Epsilon_T(t)*average_relative_entropy_fixed_t;
+                avg_denominator = avg_denominator + P_T(t)*Epsilon_T(t)*Epsilon_T(t)*average_chi_2_fixed_t;
+            end
+            
+            % Final expression of the rate
+            ratio = avg_nominator/sqrt(avg_denominator);
+
+            covert_point = sqrt(2)*ratio;
         end
 
         function bool = check_absolute_continuity(W_Y_X1_1_X2, W_Y_X1_0_X2, X2_cardinality, DEBUG)
@@ -149,10 +193,10 @@ classdef CovertCommunication
             tolerance = 1e-8;
             bool = 0;
             % extracting laws
-            W_Y_X1_0_X2 = zeros(2,Y_cardinality);
-            W_Y_X1_1_X2 = zeros(2,Y_cardinality);
-            W_Z_X1_0_X2 = zeros(2,Y_cardinality);
-            W_Z_X1_1_X2 = zeros(2,Y_cardinality);
+            W_Y_X1_0_X2 = zeros(X2_cardinality,Y_cardinality);
+            W_Y_X1_1_X2 = zeros(X2_cardinality,Y_cardinality);
+            W_Z_X1_0_X2 = zeros(X2_cardinality,Y_cardinality);
+            W_Z_X1_1_X2 = zeros(X2_cardinality,Y_cardinality);
 
             W_Y_X1_0_X2(1,:) = W_Y_X1_X2(1,:); % W_Y_X1_0_X2_0
             W_Y_X1_0_X2(2,:) = W_Y_X1_X2(2,:); % W_Y_X1_0_X2_1
@@ -172,7 +216,7 @@ classdef CovertCommunication
             different_output_distributions_eve = CovertCommunication.check_different_distributions(W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG);
 
             without_secret_key_condition = CovertCommunication.without_secret_key_condition(P_T, Epsilon_T, P_X2_mid_T, W_Y_X1_0_X2, W_Y_X1_1_X2, W_Z_X1_0_X2, W_Z_X1_1_X2, X2_cardinality, DEBUG);
-            
+%             without_secret_key_condition = 1;
             if (ismembertol(absolute_continuity_bob, 1, tolerance) && ismembertol(absolute_continuity_eve, 1, tolerance) && ismembertol(different_output_distributions_eve, 1, tolerance) && ismembertol(without_secret_key_condition, 1, tolerance))
                 bool = 1;
             end
@@ -256,6 +300,8 @@ classdef CovertCommunication
             % Final expression of the rate
             ratio = avg_nominator/sqrt(avg_denominator);
             r1 = sqrt(2)*ratio;
+            disp('r1')
+            disp(r1)
 
         end % end covert_message_rate
 
@@ -378,33 +424,6 @@ classdef CovertCommunication
                 %disp(P_X2_mid_T(:,t));
                 r2 = r2 + P_T(t)*average_relative_entropy_fixed_t;
             end
-
-%             r2 =0;
-%             for t=1:length(P_T)
-%                 W_Y_X1_0_X2_x2 = W_Y_X1_0_X2(t,:);
-%                 relative_entropy = InformationTheory.relative_entropy(W_Y_X1_0_X2_x2, W_Y_X1_0);
-%                 r2 = r2 + P_T(t)*P_X2_mid_T(t,:)*relative_entropy;
-%             end
-
-%             r2 =0;
-%             for t=1:length(P_T)
-%                 for x2=1:length(P_X2_mid_T)
-%                     W_Y_X1_0_X2_x2 = W_Y_X1_0_X2(x2,:);
-%                     
-%                     disp('-----------------------------');
-%                     disp('W_Y_X1_0_X2_x2 is: ');
-%                     disp(W_Y_X1_0_X2_x2);
-%                     disp('W_Y_X1_0 is: ');
-%                     disp(W_Y_X1_0);
-%                     disp('P_T is: ');
-%                     disp(P_T);
-%                     disp('P_X2_mid_T is: ');
-%                     disp(P_X2_mid_T);
-%                     relative_entropy = InformationTheory.relative_entropy(W_Y_X1_0_X2_x2, W_Y_X1_0);
-%                     disp(['The relative entropy is: ', num2str(relative_entropy)]);
-%                     r2 = r2 + P_T(t)*P_X2_mid_T(:,x2)*relative_entropy;
-%                 end
-%             end
         end % end non covert rate
         
         % computes the rate as I(X2;Y \mid T) which is asymptotically I(X2;Y \mid X1=0, T)

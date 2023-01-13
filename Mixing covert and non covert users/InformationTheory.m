@@ -28,26 +28,9 @@ classdef InformationTheory
             
             d = 0;
             for i=1:length(P)
-%                 if (Q(i) == 0)
-%                     Q(i) = 1e-3; % for numerical stability
-%                 end
                 log_ratio = log2(P(i)/Q(i));
-%                 if (log_ratio == -inf)
-%                     log_ratio =0;
-%                 end
                 d = d + P(i)*log_ratio;
-%                 disp('-----------------------------');
-%                 disp('d is')
-%                 disp(d);
-%                 disp('P(i) is')
-%                 disp(P(i));
-%                 disp('Q(i) is')
-%                 disp(Q(i));
-%                 disp('log2(P(i)/Q(i)) is')
-%                 disp(log2(P(i)/Q(i)));
             end
-%             disp('end d is')
-%             disp(d);
                         
         end % end relative_entropy
 
@@ -62,27 +45,31 @@ classdef InformationTheory
             
             chi = 0;
             for i=1:length(P)
-                if (P(i) == 0)
-                    P(i) = 1e-3; % for numerical stability
-                end
                 difference_power_k = (P(i)-Q(i)).^k;
                 P_i_power_k_1 = (P(i)).^(k-1);
                 ratio = difference_power_k/P_i_power_k_1;
                 chi = chi + ratio;
-%                 disp('-----------------------------');
-%                 disp('chi is')
-%                 disp(chi);
-%                 disp('P(i) is')
-%                 disp(P(i));
-%                 disp('Q(i) is')
-%                 disp(Q(i));
-%                 disp('ratio is')
-%                 disp(ratio);
             end
-%             disp('end chi is')
-%             disp(chi);
                         
-        end % end relative_entropy
+        end % end chi_k_distance
+
+        function chi = chi_2_distance(P, Q)
+            % Input:
+            %   P: a probabilities vector
+            %   Q: a probabilities vector
+            %   k: k>=1 is the order of the distance. When k=2, it's the Chi square test
+            % Output:
+            %   The Chi k distance \Chi_{k}(P||Q)
+            assert(numel(P) == numel(Q));
+            
+            chi = 0;
+            for i=1:length(P)
+                difference_power_k = (P(i)-Q(i)).^2;
+                ratio = difference_power_k/P(i);
+                chi = chi + ratio;
+            end
+                        
+        end % end chi_k_distance
 
         
 

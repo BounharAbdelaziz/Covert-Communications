@@ -1,25 +1,66 @@
-function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1] = run_simulation( ...
-                                            W_Y_X1_X2, W_Z_X1_X2, uniform_P_T, ...
+function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1, W_Y_X1_X2, W_Z_X1_X2] = run_simulation_old( ...
+                                            uniform_P_T,  W_Y_X1_X2, W_Z_X1_X2, fixed_channel_laws, ...
                                             T_cardinality, X1_cardinality, X2_cardinality, Y_cardinality, X1_X2_cardinality, ...
-                                            swap_channels_for_need_sk, max_epsilon_t, optimize_epsilons_T, ...
+                                            swap_channels_for_need_sk, sk_budget, max_epsilon_t, optimize_epsilons_T, ...
                                             max_P_X1_1, compute_marginal_PY, ...
-                                            DEBUG, DEBUG_covert, DEBUG_covert_theorem_contraints, tolerance,...
+                                            DEBUG, DEBUG_covert, DEBUG_covert_theorem_contraints, tolerance, seed,...
                                             N_epochs, draw_covert_point)
+
+    % seed for reproducibility
+    rng(seed);
     
     % to count the number of times we didn't verify the conditions of the theorem inside the loop.
     cpt = 0;
     % to count the number of times P_{X1}(1) > max_P_X1_1
     cpt_higher_than_max_P_X1_1      = 0;
+
     % for fixed epsilon_T
     if (ismembertol(optimize_epsilons_T, 0, tolerance))
         disp('[INFO] Running experiment with fixed Epsilon_T')
         Epsilon_T           = max_epsilon_t*rand(T_cardinality,1); %[0.3 0.1 0.2 0.4];
     else
         disp('[INFO] Running experiment with different Epsilon_T')
-    end    
-    
+    end
+
+    if (fixed_channel_laws)
+        disp('[INFO] Running experiment with fixed channel laws')
+    else
+        disp('[INFO] Running experiment with random channel laws')
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fix a random channel law %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        % MAC Channel matrix : We consider the channel Y = (2*X1 + X2 + w) % 4 where all variables are binary => \mathcal{Y} = \{0,1,2,3}
+        % for each Y and fixed (x1, x2) we have a vector of probabilities [y=0, y=1, y=2, y=3]
+        P_T                 = InformationTheory.generate_probability_vector(T_cardinality,1,1,0,1);
+        Epsilon_T           = max_epsilon_t*rand(T_cardinality,1);
+        if (X2_cardinality > 1)
+            P_X2_mid_T          = InformationTheory.generate_probability_vector(X2_cardinality, T_cardinality,1,0,1);
+        else
+            % As it's deterministic
+            P_X2_mid_T          = ones(X2_cardinality, T_cardinality);
+        end
+
+        W_Y_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1));
+        W_Z_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1));
+        [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, X1_X2_cardinality, swap_channels_for_need_sk, sk_budget, DEBUG_covert_theorem_contraints);
+          
+        % loop while untill constraint on absolute continuity and difference are met 
+        while (verified_conditions < 1)
+            % to get matrices in the size we want, we do a transpose as
+            % generate_probability_vector doesn't work if a < b.
+            W_Y_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1));
+            W_Z_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1));
+            verified_conditions = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, X1_X2_cardinality, swap_channels_for_need_sk, sk_budget, DEBUG_covert_theorem_contraints);
+        end
+    end
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Rate Region simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
+    disp('[INFO] Using the following channel matrix for Bob')
+    disp(W_Y_X1_X2)
+    
+    disp('[INFO] Using the following channel matrix for Eve')
+    disp(W_Z_X1_X2)
+
     % Covert user rates
     r1_vect = zeros(N_epochs,1);
     
@@ -53,17 +94,23 @@ function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1] = run_simu
     
         if (ismembertol(optimize_epsilons_T, 1, tolerance))
         % The epsilon's that normalizes the probability of sending one for the covert user (we choose them summing to one for now but it's not necessary)
-            Epsilon_T           = max_epsilon_t*rand(T_cardinality,1); %[0.3 0.1 0.2 0.4];
+            Epsilon_T           = max_epsilon_t*rand(T_cardinality,1);
         end
     
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Conditional input disbutions P_X1_mid_T and P_X2_mid_T %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        
 
         P_X1_mid_T = InformationTheory.generate_probability_vector(X1_cardinality, T_cardinality,1,0,1);
-        P_X2_mid_T = InformationTheory.generate_probability_vector(X2_cardinality, T_cardinality,1,0,1);
-        
+
+        if (X2_cardinality > 1)
+            P_X2_mid_T          = InformationTheory.generate_probability_vector(X2_cardinality, T_cardinality,1,0,1);
+        else
+            % As it's deterministic
+            P_X2_mid_T          = ones(X2_cardinality, T_cardinality);
+        end
+
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Verify if conditions are met with these choices %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-        [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, T_cardinality, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, X1_X2_cardinality, swap_channels_for_need_sk, DEBUG_covert_theorem_contraints);
+        [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, T_cardinality, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, X1_X2_cardinality, swap_channels_for_need_sk, sk_budget, DEBUG_covert_theorem_contraints);
     
         if (verified_conditions < 1)
             cpt = cpt+1;
@@ -80,7 +127,7 @@ function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1] = run_simu
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Marginal distributions P_X1 and P_X2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
-        P_X1                = zeros(1,X1_cardinality);
+        P_X1 = zeros(1,X1_cardinality);
         
         for x1=1:X1_cardinality
             avg = 0;
@@ -96,16 +143,17 @@ function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1] = run_simu
         end
     
     
-        P_X2                = zeros(1,X2_cardinality);
-        for i=1:X2_cardinality
+        P_X2 = zeros(1,X2_cardinality);
+        for x2=1:X2_cardinality
             avg = 0;
             for t=1:T_cardinality
-                avg = avg + P_X2_mid_T(i,t) * P_T(t);
+                avg = avg + P_X2_mid_T(x2,t) * P_T(t);
             end
-            P_X2(i) = avg;
+            P_X2(x2) = avg;
         end
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Marginal distributions P_Y %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
         if (compute_marginal_PY)
             P_X1_X2 = [P_X1(1)*P_X2(1) P_X1(1)*P_X2(2) P_X1(2)*P_X2(1) P_X1(2)*P_X2(2)]; % [P1(1)*P2(1) P1(0)*P2(1) P1(1)*P2(0) P1(1)*P2(1)]
        
@@ -114,8 +162,9 @@ function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1] = run_simu
                 P_Y(i) = dot(P_X1_X2, W_Y_X1_X2(:,i));
             end
         end
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Computing the rates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-           
+        
+       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Marginal distributions W_Y_X1_0_X2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
         W_Y_X1_0_X2 = zeros(X2_cardinality, Y_cardinality);
         for x2=1:X2_cardinality
             W_Y_X1_0_X2(x2,:) = W_Y_X1_X2(x2,:); % W_Y_X1_0_X2_x2
@@ -129,11 +178,14 @@ function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1] = run_simu
             end
             W_Y_X1_0(y) = W_y_X1_0;
         end
-    
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Computing the rates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
         r1 = CovertCommunication.covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG_covert);
         r1_vect(epoch) = r1;
         
-        r2 = CovertCommunication.non_covert_rate(P_T, P_X2_mid_T, W_Y_X1_0, W_Y_X1_0_X2, DEBUG);
+%         r2 = CovertCommunication.conditional_MI(P_T, P_X2_mid_T, W_Y_X1_0_X2, X2_cardinality, Y_cardinality);
+        r2 = CovertCommunication.non_covert_rate(P_T, P_X2_mid_T, W_Y_X1_0, W_Y_X1_0_X2, X2_cardinality, DEBUG);
         r2_vect(epoch) = r2;
     
         rk = CovertCommunication.covert_sk_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG_covert);

@@ -5,13 +5,16 @@
 % - compute the rate
 % - do a loop on P_T, P_{X2 \mid T}, P_{X1 \mid T} and \epsilon_T
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-clear
+clear all;
 % seed for reproducibility
-seed                            = 1998;
+seed                            = 10;
 rng(seed);
 
+sk_budget_1 = 0;
+sk_budget_2 = 5;
+
 % simulations parameters
-N_epochs                        = 50000;
+N_epochs                        = 50;
 
 % covert region
 draw_covert_point               = 0;
@@ -22,7 +25,7 @@ plot_3d                         = 1;
 max_P_X1_1                      = 1;
 
 % error in the if conditions (1==1.00)
-tolerance                       = 1e-6;
+tolerance                       = 1e-16;
 
 % Prints if debug mode
 DEBUG                           = 0;
@@ -36,7 +39,7 @@ DEBUG_covert_theorem_contraints = 0;
 T_cardinality                   = 4;
 uniform_P_T                     = 0;
 %(need to be done on the same seed in order to compare) This will swap the channel of eve and bob, so that the difference in relative entropies becoms negative.
-swap_channels_for_need_sk       = 1; 
+swap_channels_for_need_sk       = 0; 
 
 % channel parameters
 X1_cardinality                  = 2;
@@ -48,11 +51,17 @@ compute_marginal_PY             = 0;
 % simulations parameters
 max_epsilon_t                   = 1;
 optimize_epsilons_T             = 1;
+fixed_channel_laws              = 0;
 
-[r1_vect_1, r2_vect_1, rk_vect_1, cpt_1, cpt_higher_than_max_P_X1_1_1] = run_simulation( ...
-                                            uniform_P_T, ...
+% dummy variables as we generate a channel law in the first experiment and
+% force the same to be used in the second one.
+W_Y_X1_X2 = 0;
+W_Z_X1_X2 = 0;
+
+[r1_vect_1, r2_vect_1, rk_vect_1, cpt_1, cpt_higher_than_max_P_X1_1_1, W_Y_X1_X2, W_Z_X1_X2] = run_simulation( ...
+                                            uniform_P_T, W_Y_X1_X2, W_Z_X1_X2, fixed_channel_laws,...
                                             T_cardinality, X1_cardinality, X2_cardinality, Y_cardinality, X1_X2_cardinality, ...
-                                            swap_channels_for_need_sk, max_epsilon_t, optimize_epsilons_T, ...
+                                            swap_channels_for_need_sk, sk_budget_1, max_epsilon_t, optimize_epsilons_T, ...
                                             max_P_X1_1, compute_marginal_PY, ...
                                             DEBUG, DEBUG_covert, DEBUG_covert_theorem_contraints, tolerance, seed, ...
                                             N_epochs, draw_covert_point);
@@ -65,33 +74,44 @@ swap_channels_for_need_sk_2       = 0;
 
 % channel parameters
 X1_cardinality_2                  = 2;
-X2_cardinality_2                  = 3;
+X2_cardinality_2                  = 2;
 X1_X2_cardinality_2               = X1_cardinality_2*X2_cardinality_2; % cartesian product
-Y_cardinality_2                   = X1_X2_cardinality;
+Y_cardinality_2                   = X1_X2_cardinality_2;
 compute_marginal_PY_2             = 0;
 
 % simulations parameters
 max_epsilon_t_2                   = 1;
 optimize_epsilons_T_2             = 1;
+fixed_channel_laws                = 1;
 
-[r1_vect_2, r2_vect_2, rk_vect_2, cpt_2, cpt_higher_than_max_P_X1_1_2] = run_simulation( ...
-                                            uniform_P_T, ...
+% if the cardinalities are not the same, we cannot enforce them to have the
+% same channel laws.
+if (~ismembertol(sk_budget_1, sk_budget_2, tolerance))
+    fixed_channel_laws = 0;
+end
+if (~ismembertol(X2_cardinality_2, X2_cardinality, tolerance))
+    fixed_channel_laws = 0;
+end
+[r1_vect_2, r2_vect_2, rk_vect_2, cpt_2, cpt_higher_than_max_P_X1_1_2, W_Y_X1_X2, W_Z_X1_X2] = run_simulation( ...
+                                            uniform_P_T, W_Y_X1_X2, W_Z_X1_X2, fixed_channel_laws, ...
                                             T_cardinality_2, X1_cardinality_2, X2_cardinality_2, Y_cardinality_2, X1_X2_cardinality_2, ...
-                                            swap_channels_for_need_sk_2, max_epsilon_t_2, optimize_epsilons_T_2, ...
+                                            swap_channels_for_need_sk_2, sk_budget_2, max_epsilon_t_2, optimize_epsilons_T_2, ...
                                             max_P_X1_1, compute_marginal_PY_2, ...
                                             DEBUG, DEBUG_covert, DEBUG_covert_theorem_contraints, tolerance, seed,...
                                             N_epochs, draw_covert_point);
 
 % for legends
-legends = { ['X2 cardinality: ', num2str(X2_cardinality)], ['X2 cardinality: ', num2str(X2_cardinality_2)]};
+% legends = { ['X2 cardinality: ', num2str(X2_cardinality)], ['X2 cardinality: ', num2str(X2_cardinality_2)]};
+legends =   {   ['X2 cardinality: ', num2str(X2_cardinality), ' T cardinality: ', num2str(T_cardinality), ' Secret-Key budget: ',  num2str(sk_budget_1)], 
+                ['X2 cardinality: ', num2str(X2_cardinality_2), ' T cardinality: ', num2str(T_cardinality_2), ' Secret-Key budget: ',  num2str(sk_budget_2)]};
 
 if (swap_channels_for_need_sk || swap_channels_for_need_sk_2)
-    need_sk = ' when we need a sk';
+    need_sk = 'when we need a sk';
 else
-    need_sk = ' when we do not need a sk';
+    need_sk = 'when we do not need a sk';
 end
 
-title_plot = ['Rate region when cardinality of T is ' , num2str(T_cardinality), ' and cardinality of Y is ', num2str(Y_cardinality), need_sk];
+title_plot = ['Rate region ', need_sk, ' [seed=', num2str(seed), ']'];
 x_title = 'Covert user square-root rate';
 y_title = 'Non-Covert user rate';
 z_title = 'Secret-Key square-root rate';
@@ -109,9 +129,11 @@ if length(r2_vect_1) > 1
     disp(['The minimum non covert rate r2 is: ', num2str(min_r2_1)]);
     disp(['The maximum non covert rate r2 is: ', num2str(max_r2_1)]); 
     disp('--------------------------------------')
-    disp(['The number of time P_{X1}(1) >', num2str(max_P_X1_1), ' is: ', num2str(cpt_higher_than_max_P_X1_1_1), '. Which corresponds to a percentage of: ', num2str(100*cpt_higher_than_max_P_X1_1_1/N_epochs), '%']);  
+    disp(['[Exp-1] The number of time P_{X1}(1) >', num2str(max_P_X1_1), ' is: ', num2str(cpt_higher_than_max_P_X1_1_1), '. Which corresponds to a percentage of: ', num2str(100*cpt_higher_than_max_P_X1_1_1/N_epochs), '%']);  
+    disp(['[Exp-2] The number of time P_{X1}(1) >', num2str(max_P_X1_1), ' is: ', num2str(cpt_higher_than_max_P_X1_1_2), '. Which corresponds to a percentage of: ', num2str(100*cpt_higher_than_max_P_X1_1_2/N_epochs), '%']);  
     disp('--------------------------------------')
-     disp(['The number of time if did not verfiy the theorem conditions is: ', num2str(cpt_1), '. Which corresponds to a percentage of: ', num2str(100*cpt_1/N_epochs), '%']);  
+    disp(['[Exp-1] The number of time if did not verfiy the theorem conditions is: ', num2str(cpt_1), '. Which corresponds to a percentage of: ', num2str(100*cpt_1/N_epochs), '%']);  
+    disp(['[Exp-2] The number of time if did not verfiy the theorem conditions is: ', num2str(cpt_2), '. Which corresponds to a percentage of: ', num2str(100*cpt_2/N_epochs), '%']);  
     disp('--------------------------------------')
 
     
@@ -131,22 +153,18 @@ if length(r2_vect_1) > 1
     ax4 = nexttile;
     scatter(ax4, rk_vect_1, r1_vect_1, 'black');
     hold on
-    scatter(ax4, rk_vect_2, r1_vect_2, 'red');    
-    xlabel(ax4,'sk rate');
-    ylabel(ax4,'covert rate');
+    scatter(ax4, rk_vect_2, r1_vect_2, 'red'); 
     title(ax4, title_plot);
-    xlabel(ax4,x_title);
-    ylabel(ax4,y_title);
+    xlabel(ax4,z_title);
+    ylabel(ax4,x_title);
     legend(legends);
 
     ax5 = nexttile;
     scatter(ax5, rk_vect_1, r2_vect_1, 'black');
     hold on
-    scatter(ax5, rk_vect_2, r2_vect_2, 'red');    
-    xlabel(ax5,'sk rate');
-    ylabel(ax5,'non-covert rate');
+    scatter(ax5, rk_vect_2, r2_vect_2, 'red');  
     title(ax5, title_plot);
-    xlabel(ax5,x_title);
+    xlabel(ax5,z_title);
     ylabel(ax5,y_title);
     legend(legends);
 
@@ -160,6 +178,7 @@ if length(r2_vect_1) > 1
         xlabel(ax3,x_title);
         ylabel(ax3,y_title);
         zlabel(ax3,z_title);
+        legend(legends(1));
 
         figure 
         ax6 = nexttile;
@@ -168,6 +187,7 @@ if length(r2_vect_1) > 1
         xlabel(ax6,x_title);
         ylabel(ax6,y_title);
         zlabel(ax6,z_title);
+        legend(legends(2));
     end
 
     if draw_convhull

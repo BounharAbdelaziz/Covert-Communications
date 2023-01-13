@@ -7,7 +7,7 @@ function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1, W_Y_X1_X2,
                                             N_epochs, draw_covert_point)
 
     % seed for reproducibility
-%     rng(seed);
+    rng(seed);
     
     % to count the number of times we didn't verify the conditions of the theorem inside the loop.
     cpt = 0;
@@ -162,14 +162,13 @@ function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1, W_Y_X1_X2,
                 P_Y(i) = dot(P_X1_X2, W_Y_X1_X2(:,i));
             end
         end
-       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Extracting distributions we need (W_Y_X1_0_X2 and W_Y_X1_1_X2) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Marginal distributions W_Y_X1_0_X2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
         W_Y_X1_0_X2 = zeros(X2_cardinality, Y_cardinality);
         for x2=1:X2_cardinality
             W_Y_X1_0_X2(x2,:) = W_Y_X1_X2(x2,:); % W_Y_X1_0_X2_x2
         end
-       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Marginal distributions W_Y_X1_0 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-        
                 
         W_Y_X1_0 = zeros(1, Y_cardinality);
         for y=1:Y_cardinality
@@ -179,8 +178,6 @@ function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1, W_Y_X1_X2,
             end
             W_Y_X1_0(y) = W_y_X1_0;
         end
-
-        
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Computing the rates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

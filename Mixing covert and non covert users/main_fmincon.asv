@@ -91,20 +91,20 @@ function_to_maximize = @(probabilities) compute_rates_for_fmincon(probabilities(
 
 % non linear constraints
 c = [1];
-nonlcon = @(c) my_rate_constraints(c,[],[]);
+nonlcon = @(C) my_rate_constraints(c,[],[]);
 
 % optimization options
 options = optimoptions(@fmincon,'StepTolerance',1e-15,'FunctionTolerance',1e-15,'OptimalityTolerance',1e-15,'MaxFunctionEvaluations',1e+10);
 
-% the smalest rate is 0 and it can grow to infinity
-lb = [0,0,0,0];
-ub = [inf,inf,inf,inf];
+% the smalest rate is 0, and it can grow to infinity
+lb = [0,0,0];
+ub = [inf,inf,inf];
 
-% initial point (r1,r2,rk) (should it be the distributions instead?)
-b_guess = [10,15,4,0];
+% initial point (r1,r2,rk)
+b_guess = [10,15,4];
 
 % compute the value function and the 
-[b_min,fval] = fmincon(function_to_maximize,b_guess,[],[],[],[],lb,ub,nonlcon,options);
+[b_min,fval] = fmincon(function_to_maximize,b_guess,[],[],[],[],lb,ub,[],options);
 
 for experiment=1:length(T_cardinalities)
     for epoch = progress(1:N_epochs)

@@ -1,0 +1,282 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Rate Region simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Steps to follow:
+% - define a simple channel
+% - verify the constaints (absolute continuity)
+% - compute the rate
+% - do a loop on P_T, P_{X2 \mid T}, P_{X1 \mid T} and \epsilon_T
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+clear all;
+seed    = 1998;
+
+% seed for reproducibility
+rng(seed);
+
+% simulations parameters
+N_epochs                      = 1000;
+M                             = 20; % scales the random guess inside the loop of fmincon
+plot_3d                       = 1;
+draw_convhull                 = 1;
+
+% \matchal{T} is of cardinality \leq 4
+T_cardinalities               = [4];
+X2_cardinalities              = [2];
+sk_budgets                    = [1];
+X1_cardinalities              = 2*ones(length(T_cardinalities)); % always 2.
+
+max_epsilon_t_s               = ones(length(T_cardinalities));
+
+T_cardinality = T_cardinalities(1);
+X2_cardinality = X2_cardinalities(1);
+sk_budget = sk_budgets(1);
+X1_cardinality = X1_cardinalities(1);
+max_epsilon_t = max_epsilon_t_s(1);
+
+X1_X2_cardinality             = X1_cardinality*X2_cardinality; % cartesian product
+Y_cardinality                 = X1_X2_cardinality;
+
+% Prints if debug mode
+DEBUG                           = 0;
+DEBUG_covert                    = 0;
+DEBUG_covert_theorem_contraints = 0;
+
+% make sure we don't have a missing value
+assert(length(T_cardinalities) == length(X2_cardinalities))
+assert(length(T_cardinalities) == length(sk_budgets))
+assert(length(T_cardinalities) == length(max_epsilon_t_s))
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fix the channel law %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% For this channel, the diverence in divergence is always positive.
+W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.2, 0.2, 0.3, 0.3;
+            0.23,0.26, 0.22, 0.29; 0.23,0.26, 0.22, 0.29];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
+            0.43,0.05, 0.33, 0.19; 0.23,0.16, 0.42, 0.19];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+
+% Extract specific channel laws
+[W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2]    = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% P_T and disbutions Epsilon_T %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% The epsilon's that normalizes the probability of sending one for the covert user (we choose them summing to one for now but it's not necessary)
+Epsilon_T = max_epsilon_t*rand(T_cardinality,1);
+P_T       = InformationTheory.generate_probability_vector(T_cardinality,1,1,0,1);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Conditional input disbutions P_X1_mid_T and P_X2_mid_T %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        
+
+P_X1_mid_T = InformationTheory.generate_probability_vector(X1_cardinality, T_cardinality,1,0,1);
+if (X2_cardinality > 1)
+    P_X2_mid_T          = InformationTheory.generate_probability_vector(X2_cardinality, T_cardinality,1,0,1);
+else
+    % As it's deterministic
+    P_X2_mid_T          = ones(X2_cardinality, T_cardinality);
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Marginal distributions P_X1 and P_X2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+P_X1 = zeros(1,X1_cardinality);
+
+for x1=1:X1_cardinality
+    avg = 0;
+    for t=1:T_cardinality
+        avg = avg + P_X1_mid_T(x1,t) * P_T(t);
+    end
+    P_X1(x1) = avg;
+end
+
+P_X2 = zeros(1,X2_cardinality);
+for x2=1:X2_cardinality
+    avg = 0;
+    for t=1:T_cardinality
+        avg = avg + P_X2_mid_T(x2,t) * P_T(t);
+    end
+    P_X2(x2) = avg;
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Marginal distributions W_Y_X1_0 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+W_Y_X1_0 = zeros(1, Y_cardinality);
+for y=1:Y_cardinality
+    W_y_X1_0 = 0;
+    for x2=1:X2_cardinality
+        W_y_X1_0 = W_y_X1_0 + P_X2(x2) * W_Y_X1_0_X2(x2,y);
+    end
+    W_Y_X1_0(y) = W_y_X1_0;
+end        
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Rate Region simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% we add 3 because we add manually missing points:
+%     (r1=0,r2=0) (r1=0,max r2) (max r1, r2=0)
+N = N_epochs +3;
+
+% The rates are stored in a matrix, each row is for one experiment
+r1_vects = zeros(N, length(T_cardinalities)); % length(T_cardinalities) is the number of experiments
+r2_vects = zeros(N, length(T_cardinalities));
+rk_vects = zeros(N, length(T_cardinalities));
+
+% optimization function
+probabilities = [P_T]%; P_X2_mid_T; Epsilon_T];
+
+function_to_maximize = @(probabilities) compute_rates_for_fmincon(probabilities(1), P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, sk_budget, DEBUG_covert);
+
+% non linear constraints
+C = [1];
+nonlcon = @(C) my_rate_constraints(C,[],[]);
+
+% optimization options
+options = optimoptions(@fmincon,'StepTolerance',1e-15,'FunctionTolerance',1e-15,'OptimalityTolerance',1e-15,'MaxFunctionEvaluations',1e+10);
+
+% the smalest rate is 0, and it can grow to infinity
+lb = [0,0,0];
+ub = [inf,inf,inf];
+
+% initial point (r1,r2,rk)
+b_guess = [10,15,4];
+
+% compute the value function and the 
+[b_min,fval] = fmincon(function_to_maximize,b_guess,[],[],[],[],lb,ub,nonlcon,options);
+
+for experiment=1:length(T_cardinalities)
+    for epoch = progress(1:N_epochs)
+        % choose a new random point
+        b_guess = M*rand(length(b_guess), 1);
+               
+        [b_min2,fval2] = fmincon(function_to_maximize,b_guess,[],[],[],[],lb,ub,nonlcon,options);
+    
+        if(fval2<fval)
+            fval = fval2;
+            b_min = b_min2;
+        end 
+    
+        r1_vects(:, experiment) = b_min(1);
+        r2_vects(:, experiment) = b_min(2);
+        rk_vects(:, experiment) = b_min(3);
+    end
+    min_r2 = min(r2_vects(:, experiment));
+    max_r2 = max(r2_vects(:, experiment));
+    min_r1 = min(r1_vects(:, experiment));
+    max_r1 = max(r1_vects(:, experiment));
+    
+    % add (r1=0,r2=0) 
+    r1_vects(N_epochs+1, experiment)=0;
+    r2_vects(N_epochs+1, experiment)=0;
+    % add (r1=0,max r2) 
+    r1_vects(N_epochs+2, experiment)=0;
+    r2_vects(N_epochs+2, experiment)=max_r2;
+    % add  (max r1, r2=0)
+    r1_vects(N_epochs+3, experiment)=max_r1;
+    r2_vects(N_epochs+3, experiment)=0;
+end
+
+
+% rates=-1*fval;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Legends %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% To know which size for legends_convhull cell.
+sum_non_zero_all = 0;
+for experiment=1:length(T_cardinalities)
+    check_sum = r1_vects(N, experiment) + r2_vects(N-1, experiment); % max_r1 + max_r2
+    if (check_sum >0)
+        sum_non_zero_all = sum_non_zero_all + 1;
+    end
+end
+% for legends
+legends = cell(length(T_cardinalities), 1);
+legends_convhull = cell(sum_non_zero_all, 1);
+
+for experiment=1:length(T_cardinalities)
+    legends(experiment) = {['X2 cardinality: ', num2str(X2_cardinalities(experiment)), ' // T cardinality: ', num2str(T_cardinalities(experiment)), ' // Secret-Key budget: ',  num2str(sk_budgets(experiment))]};
+end
+
+% we need to go through all of them but the indexes should be \leq
+% sum_non_zero_all which is < length(T_cardinalities).
+index_ = 1;
+for experiment=1:length(T_cardinalities)
+    check_sum = r1_vects(N, experiment) + r2_vects(N-1, experiment); % max_r1 + max_r2
+    if (check_sum >0)
+        legends_convhull(index_) = {['X2 cardinality: ', num2str(X2_cardinalities(experiment)), ' // T cardinality: ', num2str(T_cardinalities(experiment)), ' // Secret-Key budget: ',  num2str(sk_budgets(experiment))]};
+        index_ = index_ + 1;
+    end
+end
+
+title_plot = ['Rate region [seed=', num2str(seed), ']'];
+x_title = 'Covert user square-root rate';
+y_title = 'Non-Covert user rate';
+z_title = 'Secret-Key square-root rate';
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Plots %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% 3D plot of the region (secret key rate, covert rate, non-covert rate)
+if (plot_3d)
+    figure 
+    ax1 = nexttile;
+    for experiment=1:length(T_cardinalities)
+        scatter3(ax1, r1_vects(:, experiment), r2_vects(:, experiment), rk_vects(:, experiment));
+        hold on
+    end
+    title(ax1,title_plot);
+    xlabel(ax1,x_title);
+    ylabel(ax1,y_title);
+    zlabel(ax1,z_title);
+    legend(legends);
+end
+
+% covert rate vs non-covert rate
+ax2 = nexttile;
+for experiment=1:length(T_cardinalities)
+    scatter(ax2, r1_vects(:, experiment), r2_vects(:, experiment));
+    hold on
+end
+title(ax2, title_plot);
+xlabel(ax2,x_title);
+ylabel(ax2,y_title);
+legend(legends);
+
+
+% secret key rate vs covert rate
+ax3 = nexttile;
+for experiment=1:length(T_cardinalities)
+    scatter(ax3, rk_vects(:, experiment), r1_vects(:, experiment));
+    hold on
+end
+title(ax3, title_plot);
+xlabel(ax3,z_title);
+ylabel(ax3,x_title);
+legend(legends);
+
+% secret key rate vs non-covert rate
+ax4 = nexttile;
+for experiment=1:length(T_cardinalities)
+    scatter(ax4, rk_vects(:, experiment), r2_vects(:, experiment));
+    hold on
+end
+title(ax4, title_plot);
+xlabel(ax4,z_title);
+ylabel(ax4,y_title);
+legend(legends);
+
+% convhull of the rate region (covert and non-covert rates)
+if draw_convhull
+    figure 
+    ax5 = nexttile;
+    hold on
+    for experiment=1:length(T_cardinalities)
+        % if all are zeros then the max is zero, so the convexhull doesn't
+        % exist
+        check_sum = r1_vects(N, experiment) + r2_vects(N-1, experiment); % max_r1 + max_r2
+        if (check_sum >0)
+            P_i = [r1_vects(:, experiment) , r2_vects(:, experiment)];
+            [k_i,av_i] = convhull(P_i);
+            plot(ax5, P_i(k_i,1),P_i(k_i,2))
+        else
+            disp(['[INFO] Experiment ', num2str(experiment), ' has only one point (0,0,0). No convex hull can be obtained!']);
+            continue
+        end
+        hold on
+    end
+    title(ax5, title_plot);
+    xlabel(ax5,x_title);
+    ylabel(ax5,y_title);
+    legend(legends_convhull);
+end

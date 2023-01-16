@@ -1,13 +1,13 @@
-function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1, W_Y_X1_X2, W_Z_X1_X2] = run_simulation( ...
+function [r1_vect, r2_vect, rk_vect, higher_than_sk_budgets, cpt, cpt_higher_than_max_P_X1_1, W_Y_X1_X2, W_Z_X1_X2] = run_simulation( ...
                                             uniform_P_T,  W_Y_X1_X2, W_Z_X1_X2, fixed_channel_laws, ...
                                             T_cardinality, X1_cardinality, X2_cardinality, Y_cardinality, X1_X2_cardinality, ...
-                                            swap_channels_for_need_sk, sk_budget, max_epsilon_t, optimize_epsilons_T, ...
+                                            sk_budget, swap_bob_eve_channels, max_epsilon_t, optimize_epsilons_T, ...
                                             max_P_X1_1, compute_marginal_PY, ...
                                             DEBUG, DEBUG_covert, DEBUG_covert_theorem_contraints, tolerance, seed,...
                                             N_epochs, draw_covert_point)
 
     % seed for reproducibility
-%     rng(seed);
+    rng(seed);
     
     % to count the number of times we didn't verify the conditions of the theorem inside the loop.
     cpt = 0;
@@ -24,6 +24,13 @@ function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1, W_Y_X1_X2,
 
     if (fixed_channel_laws)
         disp('[INFO] Running experiment with fixed channel laws')
+        if (swap_bob_eve_channels)
+            disp('[INFO] Swaping Eve and Bob channels.');
+            tmp = W_Y_X1_X2;
+            W_Y_X1_X2 = W_Z_X1_X2;
+            W_Z_X1_X2 = tmp;
+        end
+        [W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2] = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
     else
         disp('[INFO] Running experiment with random channel laws')
 
@@ -31,18 +38,11 @@ function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1, W_Y_X1_X2,
         
         % MAC Channel matrix : We consider the channel Y = (2*X1 + X2 + w) % 4 where all variables are binary => \mathcal{Y} = \{0,1,2,3}
         % for each Y and fixed (x1, x2) we have a vector of probabilities [y=0, y=1, y=2, y=3]
-        P_T                 = InformationTheory.generate_probability_vector(T_cardinality,1,1,0,1);
-        Epsilon_T           = max_epsilon_t*rand(T_cardinality,1);
-        if (X2_cardinality > 1)
-            P_X2_mid_T          = InformationTheory.generate_probability_vector(X2_cardinality, T_cardinality,1,0,1);
-        else
-            % As it's deterministic
-            P_X2_mid_T          = ones(X2_cardinality, T_cardinality);
-        end
 
         W_Y_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1));
         W_Z_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1));
-        [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, X1_X2_cardinality, swap_channels_for_need_sk, sk_budget, DEBUG_covert_theorem_contraints);
+        [W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2] = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
+        [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve] = CovertCommunication.check_theorem_conditions(W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG_covert_theorem_contraints);
           
         % loop while untill constraint on absolute continuity and difference are met 
         while (verified_conditions < 1)
@@ -50,41 +50,51 @@ function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1, W_Y_X1_X2,
             % generate_probability_vector doesn't work if a < b.
             W_Y_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1));
             W_Z_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1));
-            verified_conditions = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, P_T, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, X1_X2_cardinality, swap_channels_for_need_sk, sk_budget, DEBUG_covert_theorem_contraints);
+            [W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2] = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
+            [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve] = CovertCommunication.check_theorem_conditions(W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG_covert_theorem_contraints);
         end
     end
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Rate Region simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    % we add 3 because we add manually missing points:
+    %     (r1=0,r2=0) (r1=0,max r2) (max r1, r2=0)
+    N = N_epochs+3;
+    % Covert user rates
+    r1_vect = zeros(N,1);
     
+    % Non covert user rates
+    r2_vect = zeros(N,1);
+%     r2_vect2 = zeros(N,1);
+
+    % Secret key rates
+    rk_vect = zeros(N,1);
+    higher_than_sk_budgets = zeros(N_epochs,1);
+    
+    % covert region
+    if draw_covert_point
+        covert_points = zeros(N_epochs,1);
+    end
+
+    % if not fixed and we need to swap    
+    if (~fixed_channel_laws)
+        if (swap_bob_eve_channels)
+            disp('[INFO] Swaping Eve and Bob channels.');
+            tmp = W_Y_X1_X2;
+            W_Y_X1_X2 = W_Z_X1_X2;
+            W_Z_X1_X2 = tmp;
+        end
+    end
+
     disp('[INFO] Using the following channel matrix for Bob')
     disp(W_Y_X1_X2)
     
     disp('[INFO] Using the following channel matrix for Eve')
     disp(W_Z_X1_X2)
 
-    % Covert user rates
-    r1_vect = zeros(N_epochs,1);
-    
-    % Non covert user rates
-    r2_vect = zeros(N_epochs,1);
-    
-    % Secret key rates
-    rk_vect = zeros(N_epochs,1);
-    
-    % covert region
-    if draw_covert_point
-        covert_points = zeros(N_epochs,1);
-    end
-    
-    if (swap_channels_for_need_sk)
-        swap = W_Z_X1_X2;
-        W_Z_X1_X2 = W_Y_X1_X2;
-        W_Y_X1_X2 = swap;
-    end
-    
     % iterate over all input distributions.
     disp('[INFO] Starting simulation now...');
     for epoch = progress(1:N_epochs)
-        
+
         % Generate new P_T
         if (uniform_P_T)
             P_T                 = (1/T_cardinality)*ones(T_cardinality,1);
@@ -110,7 +120,7 @@ function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1, W_Y_X1_X2,
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Verify if conditions are met with these choices %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-        [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve, without_secret_key_condition] = CovertCommunication.check_theorem_conditions(W_Y_X1_X2, W_Z_X1_X2, T_cardinality, Epsilon_T, P_X2_mid_T, X2_cardinality, Y_cardinality, X1_X2_cardinality, swap_channels_for_need_sk, sk_budget, DEBUG_covert_theorem_contraints);
+        [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve] = CovertCommunication.check_theorem_conditions(W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG_covert_theorem_contraints);
     
         if (verified_conditions < 1)
             cpt = cpt+1;
@@ -120,7 +130,6 @@ function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1, W_Y_X1_X2,
                 disp(['[INFO] absolute_continuity_bob : ', num2str(absolute_continuity_bob)]);
                 disp(['[INFO] absolute_continuity_eve : ', num2str(absolute_continuity_eve)]);
                 disp(['[INFO] different_output_distributions_eve : ', num2str(different_output_distributions_eve)]);
-                disp(['[INFO] without_secret_key_condition : ', num2str(without_secret_key_condition)]);
             end
             continue % go to next iteration
         end   
@@ -162,15 +171,9 @@ function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1, W_Y_X1_X2,
                 P_Y(i) = dot(P_X1_X2, W_Y_X1_X2(:,i));
             end
         end
-       %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Extracting distributions we need (W_Y_X1_0_X2 and W_Y_X1_1_X2) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        W_Y_X1_0_X2 = zeros(X2_cardinality, Y_cardinality);
-        for x2=1:X2_cardinality
-            W_Y_X1_0_X2(x2,:) = W_Y_X1_X2(x2,:); % W_Y_X1_0_X2_x2
-        end
+
        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Marginal distributions W_Y_X1_0 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-        
-                
         W_Y_X1_0 = zeros(1, Y_cardinality);
         for y=1:Y_cardinality
             W_y_X1_0 = 0;
@@ -178,25 +181,62 @@ function [r1_vect, r2_vect, rk_vect, cpt, cpt_higher_than_max_P_X1_1, W_Y_X1_X2,
                 W_y_X1_0 = W_y_X1_0 + P_X2(x2) * W_Y_X1_0_X2(x2,y);
             end
             W_Y_X1_0(y) = W_y_X1_0;
-        end
-
-        
+        end        
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Computing the rates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-        r1 = CovertCommunication.covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG_covert);
-        r1_vect(epoch) = r1;
+        % start with secret key rate for efficiency of the running time
+        rk = CovertCommunication.covert_sk_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG_covert);
         
-%         r2 = CovertCommunication.conditional_MI(P_T, P_X2_mid_T, W_Y_X1_0_X2, X2_cardinality, Y_cardinality);
-        r2 = CovertCommunication.non_covert_rate(P_T, P_X2_mid_T, W_Y_X1_0, W_Y_X1_0_X2, X2_cardinality, DEBUG);
-        r2_vect(epoch) = r2;
-    
-        rk = CovertCommunication.covert_sk_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_X2, W_Z_X1_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG_covert);
-        rk_vect(epoch) = rk;
+        if (rk < sk_budget)
+            rk_vect(epoch) = rk;
+
+            r1 = CovertCommunication.covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG_covert);
+            r1_vect(epoch) = r1;
+            
+%             r22 = CovertCommunication.conditional_MI(P_T, P_X2_mid_T, W_Y_X1_0_X2, X2_cardinality, Y_cardinality);
+            r2 = CovertCommunication.non_covert_rate(P_T, P_X2_mid_T, W_Y_X1_0, W_Y_X1_0_X2, X2_cardinality, DEBUG);
+            r2_vect(epoch) = r2;
+%             r2_vect2(epoch) = r22;
+
+        else
+            higher_than_sk_budgets(epoch) = rk; % just for analysis
+            continue
+        end
+        
         
         if draw_covert_point
             covert_point = CovertCommunication.compute_covert_point(P_T, P_X2_mid_T, Epsilon_T, W_Z_X1_X2, X2_cardinality, Y_cardinality, DEBUG);
             covert_points(epoch) = covert_point;
         end
     end
+
+    min_r2 = min(r2_vect);
+    max_r2 = max(r2_vect);
+    min_r1 = min(r1_vect);
+    max_r1 = max(r1_vect);
+
+    % add (r1=0,r2=0) 
+    r1_vect(N_epochs+1)=0;
+    r2_vect(N_epochs+1)=0;
+    % add (r1=0,max r2) 
+    r1_vect(N_epochs+2)=0;
+    r2_vect(N_epochs+2)=max_r2;
+    % add  (max r1, r2=0)
+    r1_vect(N_epochs+3)=max_r1;
+    r2_vect(N_epochs+3)=0;
+
+    disp('--------------------------------------')    
+    disp(['The minimum covert rate r1 is: ', num2str(min_r1)]);
+    disp(['The maximum covert rate r1 is: ', num2str(max_r1)]);    
+    disp('--------------------------------------')    
+    disp(['The minimum non covert rate r2 is: ', num2str(min_r2)]);
+    disp(['The maximum non covert rate r2 is: ', num2str(max_r2)]); 
+    disp('--------------------------------------')
+    disp(['[Exp-1] The number of time P_{X1}(1) >', num2str(max_P_X1_1), ' is: ', num2str(cpt_higher_than_max_P_X1_1), '. Which corresponds to a percentage of: ', num2str(100*cpt_higher_than_max_P_X1_1/N_epochs), '%']);  
+    disp('--------------------------------------')
+    disp(['[Exp-1] The number of time if did not verfiy the theorem conditions is: ', num2str(cpt), '. Which corresponds to a percentage of: ', num2str(100*cpt/N_epochs), '%']);  
+    disp('--------------------------------------')
+
+    
 end

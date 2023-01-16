@@ -1,13 +1,10 @@
-classdef CovertCommunication
+classdef CovertCommunication_fixed_SK
 
     methods (Static)
 
         function DEBUG = set_debug(debug)
             CovertCommunication.DEBUG =debug;
         end
-        
-        
-        
         
            
         function covert_point = compute_covert_point(P_T, P_X2_mid_T, Epsilon_T, W_Z_X1_X2, X2_cardinality, Y_cardinality, DEBUG)
@@ -313,7 +310,7 @@ classdef CovertCommunication
        
         
         % computes   I(X2;Y \mid X1=0, T)
-        function I = conditional_MI(P_T, P_X2_mid_T, W_Y_X1_0_X2, X2_cardinality, Y_cardinality, DEBUG)
+        function I = conditional_MI(P_T, P_X2_mid_T, W_Y_X1_0_X2, X2_cardinality, Y_cardinality)
             % Input:
             %   P_T             : a probabilities vector for the time sharing rv
             %   P_X2_mid_T    : conditional probability vector P_{X_2 \mid T} 
@@ -326,16 +323,18 @@ classdef CovertCommunication
             
             
             for t=1:length(P_T)
-                PY(:,t)= sum(P_X2_mid_T(:,t).*W_Y_X1_0_X2);
-                H_Y_X_0_T(t)=-sum( PY(:,t).*log2 PY(:,t));
-                for x2=1:length(P_X2)
-                    H_Y_X1_0_X2_T(x_2,t)=-sum( W_Y_X1_0_X2(x_2,:).*log2(W_Y_X1_0_X2(x_2,:)));
+                PY(t,:)= (P_X2_mid_T(:,t)')*W_Y_X1_0_X2;
+                H_Y_X_0_T(t)=-sum( PY(t,:).*log2(PY(t,:)));
+                for x2=1:X2_cardinality
+                    H_Y_X1_0_X2_T(x2,t)=-sum( W_Y_X1_0_X2(x2,:).*log2(W_Y_X1_0_X2(x2,:)));
                 end;
-                avg_H_Y_X1_0_X2_T(t)= sum(P_X2_mid_T(:,t) * H_Y_X1_0_X2_T(:,t));
-                I(t)=H_Y_X_0_T(t) - avg_H_Y_X1_0_X2_T(t);
+                avg_H_Y_X1_0_X2_T(t)= (P_X2_mid_T(:,t)')* H_Y_X1_0_X2_T(:,t);
+                I_T(t)=H_Y_X_0_T(t) - avg_H_Y_X1_0_X2_T(t);
               end;
               
-              I=sum(P_T .* I);
+              I=I_T*P_T;
               
-            end
+        end
+    end
+end
     

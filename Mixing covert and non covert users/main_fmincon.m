@@ -11,29 +11,23 @@ seed    = 1998;
 % seed for reproducibility
 rng(seed);
 
-% simulations parameters
-N_epochs                      = 100;
-M                             = 20; % scales the random guess inside the loop of fmincon
-plot_3d                       = 1;
-draw_convhull                 = 1;
+% simulation parameters
+step_size = 0.5;
+lb_mu_1 = 0;
+ub_mu_1 = 1;
+lb_mu_2 = 0;
+ub_mu_2 = 1;
+total_runs = ((ub_mu_1-lb_mu_1)/step_size)*((ub_mu_2-lb_mu_2)/step_size);
 
 % \matchal{T} is of cardinality \leq 4
-T_cardinalities               = [4];
-X2_cardinalities              = [2];
-sk_budgets                    = [1];
+T_cardinalities               = [2,2,2,2];
+X2_cardinalities              = [2,2,2,2];
+sk_budgets                    = [0.2,0.4,0.5,1];
 X1_cardinalities              = 2*ones(length(T_cardinalities)); % always 2.
 
-max_epsilon_t_s               = ones(length(T_cardinalities));
-
-% for now only one experiment, generalization to be done after.
-T_cardinality = T_cardinalities(1);
-X2_cardinality = X2_cardinalities(1);
-sk_budget = sk_budgets(1);
-X1_cardinality = X1_cardinalities(1);
-max_epsilon_t = max_epsilon_t_s(1);
-
-X1_X2_cardinality             = X1_cardinality*X2_cardinality; % cartesian product
-Y_cardinality                 = X1_X2_cardinality;
+% ploting parameters
+plot_3d                       = 1;
+draw_convhull                 = 1;
 
 % Prints if debug mode
 DEBUG                           = 0;
@@ -43,84 +37,96 @@ DEBUG_covert_theorem_contraints = 0;
 % make sure we don't have a missing value
 assert(length(T_cardinalities) == length(X2_cardinalities))
 assert(length(T_cardinalities) == length(sk_budgets))
-assert(length(T_cardinalities) == length(max_epsilon_t_s))
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fix the channel law %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% For this channel, the diverence in divergence is always positive.
-W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.2, 0.2, 0.3, 0.3;
-            0.23,0.26, 0.22, 0.29; 0.23,0.26, 0.22, 0.29];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
-W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
-            0.43,0.05, 0.33, 0.19; 0.23,0.16, 0.42, 0.19];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
-
-% Extract specific channel laws
-[W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2]    = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% P_T and disbutions Epsilon_T %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% The epsilon's that normalizes the probability of sending one for the covert user (we choose them summing to one for now but it's not necessary)
-Epsilon_T = max_epsilon_t*rand(T_cardinality,1);
-P_T       = InformationTheory.generate_probability_vector(T_cardinality,1,1,0,1);
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Conditional input disbutions P_X1_mid_T and P_X2_mid_T %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%        
-
-P_X1_mid_T = InformationTheory.generate_probability_vector(X1_cardinality, T_cardinality,1,0,1);
-if (X2_cardinality > 1)
-    P_X2_mid_T          = InformationTheory.generate_probability_vector(X2_cardinality, T_cardinality,1,0,1);
-else
-    % As it's deterministic
-    P_X2_mid_T          = ones(X2_cardinality, T_cardinality);
-end
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Rate Region simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% non linear constraints
+nonlcon = @(probas_and_eps) my_rate_constraints(probas_and_eps);
+
+% optimization options
+options = optimoptions(@fmincon,'StepTolerance',1e-15,'FunctionTolerance',1e-15,'OptimalityTolerance',1e-15,'MaxFunctionEvaluations',1e+10, 'MaxIterations', 1e3, 'Display','off');
+
+% initial point (r1,r2,rk) (should it be the distributions instead?)
+probas_and_eps_guess = rand(8,1);% [P_X2_mid_T(0 | 0), P_X2_mid_T(0 | 1), P_X2_mid_T(1 | 0), P_X2_mid_T(1 | 1), P_T(0), P_T(1), Epsilon_T(0), Epsilon_T(1)]
+
+% The optimization is over probabilities so they must be in [0,1]
+lb = zeros(length(probas_and_eps_guess),1);
+ub = ones(length(probas_and_eps_guess),1);
+
 % we add 3 because we add manually missing points:
 %     (r1=0,r2=0) (r1=0,max r2) (max r1, r2=0)
-N = N_epochs +3;
+N = total_runs +3;
 
 % The rates are stored in a matrix, each row is for one experiment
 r1_vects = zeros(N, length(T_cardinalities)); % length(T_cardinalities) is the number of experiments
 r2_vects = zeros(N, length(T_cardinalities));
 rk_vects = zeros(N, length(T_cardinalities));
 
-% optimization function
-probabilities = [P_T]%; P_X2_mid_T; Epsilon_T];
-
-function_to_maximize = @(probabilities) compute_rates_for_fmincon(probabilities(1), P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, sk_budget, DEBUG_covert);
-
-% non linear constraints
-c = [1];
-nonlcon = @(c) my_rate_constraints(c,[],[]);
-
-% optimization options
-options = optimoptions(@fmincon,'StepTolerance',1e-15,'FunctionTolerance',1e-15,'OptimalityTolerance',1e-15,'MaxFunctionEvaluations',1e+10);
-
-% the smalest rate is 0 and it can grow to infinity
-lb = [0,0,0,0];
-ub = [inf,inf,inf,inf];
-
-% initial point (r1,r2,rk) (should it be the distributions instead?)
-b_guess = [10,15,4,0];
-
-% compute the value function and the 
-[b_min,fval] = fmincon(function_to_maximize,b_guess,[],[],[],[],lb,ub,nonlcon,options);
-
+% For each experiment from the list of comparative experiments.
 for experiment=1:length(T_cardinalities)
-    for epoch = progress(1:N_epochs)
-        % choose a new random point
-        b_guess = M*rand(length(b_guess), 1);
 
-        [b_min2,fval2] = fmincon(function_to_maximize,b_guess,[],[],[],[],lb,ub,nonlcon,options);
+    % for now only one experiment, generalization to be done after.
+    T_cardinality           = T_cardinalities(experiment);
+    X2_cardinality          = X2_cardinalities(experiment);
+    sk_budget               = sk_budgets(experiment);
+    X1_cardinality          = X1_cardinalities(experiment);    
+    X1_X2_cardinality       = X1_cardinality*X2_cardinality; % cartesian product
+    Y_cardinality           = X1_X2_cardinality;
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fix the channel law %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    % For this channel, the diverence in divergence is always positive.
+    W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.2, 0.2, 0.3, 0.3;
+                0.23,0.26, 0.22, 0.29; 0.23,0.26, 0.22, 0.29];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+    W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
+                0.43,0.05, 0.33, 0.19; 0.23,0.16, 0.42, 0.19];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
     
-        if(fval2<fval)
-            fval = fval2;
-            b_min = b_min2;
-        end 
+    % Extract specific channel laws
+    [W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2]    = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
+
+
+    % The loss is \mu_1*r_1 + \mu_2*r_2. We vary \mu_1 and \mu_2 in order
+    % to get all points in the boundary. If \mu_1 = 0, we get the maximum
+    % rate for r_2 and vice versa. Otherwise, we get the points in between.
     
-        r1_vects(:, experiment) = b_min(1);
-        r2_vects(:, experiment) = b_min(2);
-        rk_vects(:, experiment) = b_min(3);
+    index_rates_experiment = 1; % where to store the rates we compute
+
+    for mu_1=progress(lb_mu_1:step_size:ub_mu_1)
+
+        for mu_2=lb_mu_2:step_size:ub_mu_2
+            
+            % optimization function
+            function_to_maximize = @(probas_and_eps) objective_function_fmincon(probas_and_eps(1), probas_and_eps(2), probas_and_eps(3), probas_and_eps(4), probas_and_eps(5), probas_and_eps(6), probas_and_eps(7), probas_and_eps(8), ...
+                                                                   W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, sk_budget, mu_1, mu_2, DEBUG_covert);
+            
+            % constraints
+            nonlcon = @(probas_and_eps) my_rate_constraints(probas_and_eps, sk_budget, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG_covert);
+
+            % choose a new random point
+            probas_and_eps_guess = zeros(length(probas_and_eps_guess), 1);
+            
+            % optimize probas_and_eps_guess
+            [b_min,fval] = fmincon(function_to_maximize,probas_and_eps_guess,[],[],[],[],lb,ub,nonlcon,options);
+            
+%             disp(b_min)
+            % compute the rates with the optimal probas_and_eps_guess for
+            % the fixed mu_1 and mu_2.
+
+            [r1, r2, rk] = compute_rates_for_fmincon(b_min(1), b_min(2), b_min(3), b_min(4), b_min(5), b_min(6), b_min(7), b_min(8), ...
+                                                        W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, sk_budget, DEBUG_covert);
+
+            r1_vects(index_rates_experiment, experiment) = r1;
+            r2_vects(index_rates_experiment, experiment) = r2;
+            rk_vects(index_rates_experiment, experiment) = rk;
+%             disp(r1);
+%             disp(r2);
+%             disp(rk);
+            index_rates_experiment = index_rates_experiment +1;
+            [c,ceq] = my_rate_constraints(b_min, sk_budget, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG_covert);
+%             disp(c);
+%             disp(ceq);
+%             disp('--------------------------')
+        end
     end
     min_r2 = min(r2_vects(:, experiment));
     max_r2 = max(r2_vects(:, experiment));
@@ -128,14 +134,14 @@ for experiment=1:length(T_cardinalities)
     max_r1 = max(r1_vects(:, experiment));
     
     % add (r1=0,r2=0) 
-    r1_vects(N_epochs+1, experiment)=0;
-    r2_vects(N_epochs+1, experiment)=0;
+    r1_vects(total_runs+1, experiment)=0;
+    r2_vects(total_runs+1, experiment)=0;
     % add (r1=0,max r2) 
-    r1_vects(N_epochs+2, experiment)=0;
-    r2_vects(N_epochs+2, experiment)=max_r2;
+    r1_vects(total_runs+2, experiment)=0;
+    r2_vects(total_runs+2, experiment)=max_r2;
     % add  (max r1, r2=0)
-    r1_vects(N_epochs+3, experiment)=max_r1;
-    r2_vects(N_epochs+3, experiment)=0;
+    r1_vects(total_runs+3, experiment)=max_r1;
+    r2_vects(total_runs+3, experiment)=0;
 end
 
 

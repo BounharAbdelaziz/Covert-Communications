@@ -240,6 +240,7 @@ classdef CovertCommunication
                 numerator_T(t)= Epsilon_T(t)*difference_Ds*P_X2_mid_T(:,t) ;
                 denominator_T(t)= chi_2* P_X2_mid_T(:,t)*(Epsilon_T(t))^2;    
             end
+            
           numerator=numerator_T*P_T;
           denominator=denominator_T*P_T;
           rk=sqrt(2)*numerator./(sqrt(denominator));

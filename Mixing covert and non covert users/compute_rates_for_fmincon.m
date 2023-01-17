@@ -1,10 +1,46 @@
-function [r1, r2, rk] = compute_rates_for_fmincon(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, sk_budget, DEBUG_covert)
+function [r1, r2, rk] = compute_rates_for_fmincon(probas_and_eps, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, sk_budget, DEBUG_covert)
     
-    % multiply with -1 for fmincon to the maximization
-    rk = -1 * CovertCommunication.covert_sk_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG_covert);    
+    % For card(T)=card(X2)=2, probas_and_eps is in the form of [P_X2_mid_T(0 | 0), P_X2_mid_T(0 | 1), P_X2_mid_T(1 | 0), P_X2_mid_T(1 | 1), P_T(0), P_T(1), Epsilon_T(0), Epsilon_T(1)]
+    % so we extract and construct P_T, P_X2_mid_T, Epsilon_T from it.
+    P_X2_mid_T = zeros(X2_cardinality, T_cardinality);
+    index = 0;
+    for x2=1:X2_cardinality
+        for t=1:T_cardinality
+            P_X2_mid_T(x2,t) = probas_and_eps(index);
+            index = index + 1;
+        end
+    end
+
+    % P_T and Epsilon_T are vectors of size (T_cardinality, 1)
+    P_T = zeros(T_cardinality, 1);
+    for t=1:T_cardinality
+        P_T(t) = probas_and_eps(index);
+        index = index + 1;
+    end
+
+    Epsilon_T = zeros(T_cardinality, 1);
+    for t=1:T_cardinality
+        Epsilon_T(t) = probas_and_eps(index);
+        index = index + 1;
+    end
+    
+    
+%     P_X2_mid_T = zeros(2, 2);
+%     % First line is for X2=0
+%     P_X2_mid_T(1,1) = P_X2_0_T_0;
+%     P_X2_mid_T(1,2) = P_X2_0_T_1;
+%     % Second line is for X2= 1
+%     P_X2_mid_T(2,1) = P_X2_1_T_0;
+%     P_X2_mid_T(2,2) = P_X2_1_T_1;
+%     
+%     % P_T and Epsilon_T are vectors of size (T_cardinality, 1)
+%     P_T = [P_T_0 ; P_T_1];
+%     Epsilon_T = [Epsilon_T_0 ; Epsilon_T_1];
+
+    rk = CovertCommunication.covert_sk_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG_covert);    
     if (rk < sk_budget)
-        r1 = -1 * CovertCommunication.covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG_covert);  
-        r2 = -1 * CovertCommunication.conditional_MI(P_T, P_X2_mid_T, W_Y_X1_0_X2, X2_cardinality, Y_cardinality);
+        r1 = CovertCommunication.covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG_covert);  
+        r2 = CovertCommunication.conditional_MI(P_T, P_X2_mid_T, W_Y_X1_0_X2, X2_cardinality, Y_cardinality);
 %         r2 = CovertCommunication.non_covert_rate(P_T, P_X2_mid_T, W_Y_X1_0, W_Y_X1_0_X2, X2_cardinality, DEBUG);
     else
         % we cannot achieve positive rates

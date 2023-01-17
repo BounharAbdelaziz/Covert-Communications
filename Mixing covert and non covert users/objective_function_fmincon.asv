@@ -1,5 +1,4 @@
-function [loss] = objective_function_fmincon(P_X2_0_T_0, P_X2_0_T_1, P_X2_1_T_0, P_X2_1_T_1, P_T_0, P_T_1, Epsilon_T_0, Epsilon_T_1 ...
-                                                , W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, mu_1, mu_2, DEBUG_covert)
+function [loss] = objective_function_fmincon(probas_and_eps, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, mu_1, mu_2, DEBUG_covert)
 
     % probas_and_eps is in the form of [P_X2_mid_T(0 | 0), P_X2_mid_T(0 | 1), P_X2_mid_T(1 | 0), P_X2_mid_T(1 | 1), P_T(0), P_T(1), Epsilon_T(0), Epsilon_T(1)]
     % so we extract and construct P_T, P_X2_mid_T, Epsilon_T from it.

@@ -1,4 +1,4 @@
-function[c,ceq] = my_rate_constraints(probas_and_eps, sk_budget, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG_covert)
+function[c,ceq] = my_rate_constraints(probas_and_eps, sk_budget, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, DEBUG_covert)
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Extracting probabilities %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -7,7 +7,7 @@ function[c,ceq] = my_rate_constraints(probas_and_eps, sk_budget, W_Y_X1_1_X2, W_
     % compute the secret key rate and compare it to the budget.
     
     P_X2_mid_T = zeros(X2_cardinality, T_cardinality);
-    index = 0;
+    index = 1;
     for x2=1:X2_cardinality
         for t=1:T_cardinality
             P_X2_mid_T(x2,t) = probas_and_eps(index);
@@ -55,19 +55,5 @@ function[c,ceq] = my_rate_constraints(probas_and_eps, sk_budget, W_Y_X1_1_X2, W_
     end
     % \sum_{t} P_{T} (T=t) = 1
     ceq(t+1) = sum(P_T(:,1)) - 1; 
-
-
-%     % The constraints on the probabilities
-%     % P_X2_mid_T_0 should sum to 1
-%     c1 = probas_and_eps(1) + probas_and_eps(3) - 1;
-%     % P_X2_mid_T_1 should sum to 1
-%     c2 = probas_and_eps(2) + probas_and_eps(4) - 1;
-%     % P_T should sum to 1
-%     c3 = probas_and_eps(5) + probas_and_eps(6) - 1;
-
-
-    % gathering all constraints
-%     c = [c_sk_budget];
-%     ceq = [c1, c2, c3];
     
 end

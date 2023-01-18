@@ -23,16 +23,24 @@ function [r1, r2, rk] = compute_rates_for_fmincon(probas_and_eps, W_Y_X1_1_X2, W
         Epsilon_T(t) = probas_and_eps(index);
         index = index + 1;
     end
+
+%     P_X2_mid_T = zeros(2, 1);
+%     % First line is for X2=0
+%     P_X2_mid_T(1,1) = probas_and_eps(1);
+%     % Second line is for X2= 1
+%     P_X2_mid_T(2,1) = probas_and_eps(2);
+%     
+%     % P_T and Epsilon_T are vectors of size (T_cardinality, 1)
+%     P_T = [probas_and_eps(3)];
+%     Epsilon_T = [probas_and_eps(4)];
     
     rk = CovertCommunication.covert_sk_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG_covert);    
-    if (rk < sk_budget)
+    if (rk <= sk_budget)
         r1 = CovertCommunication.covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG_covert);  
         r2 = CovertCommunication.conditional_MI(P_T, P_X2_mid_T, W_Y_X1_0_X2, X2_cardinality, Y_cardinality);
-%         r2 = CovertCommunication.non_covert_rate(P_T, P_X2_mid_T, W_Y_X1_0, W_Y_X1_0_X2, X2_cardinality, DEBUG);
+    %     r2 = CovertCommunication.non_covert_rate(P_T, P_X2_mid_T, W_Y_X1_0, W_Y_X1_0_X2, X2_cardinality, DEBUG);
     else
-        % we cannot achieve positive rates
-        r1 = 0;
-        r2 = 0;
-        rk = 0;
+        r1 =0;
+        r2= 0;
     end
 end

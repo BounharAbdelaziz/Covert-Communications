@@ -28,24 +28,12 @@ function[c,ceq] = my_rate_constraints(probas_and_eps, sk_budget, W_Y_X1_1_X2, W_
         index = index + 1;
     end
 
-    
-%     P_X2_mid_T = zeros(2, 2);
-%     % First line is for X2=0
-%     P_X2_mid_T(1,1) = probas_and_eps(1);
-%     P_X2_mid_T(1,2) = probas_and_eps(2);
-%     % Second line is for X2= 1
-%     P_X2_mid_T(2,1) = probas_and_eps(3);
-%     P_X2_mid_T(2,2) = probas_and_eps(4);
-%     
-%     % P_T and Epsilon_T are vectors of size (T_cardinality, 1)
-%     P_T = [probas_and_eps(5) ; probas_and_eps(6)];
-%     Epsilon_T = [probas_and_eps(7) ; probas_and_eps(8)];
-
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Secret key budget constraint (rk \leq sk_buget) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     rk = CovertCommunication.covert_sk_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG_covert); 
-    c_sk_budget = rk - sk_budget;
+    c_sk_budget = rk - sk_budget; % rk < sk_budget => rk - sk_budget < 0 (c <0 for fmincon)
     c = c_sk_budget;
+%     c = [];
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Probabilities constraint (should sum to 1)  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
@@ -55,5 +43,15 @@ function[c,ceq] = my_rate_constraints(probas_and_eps, sk_budget, W_Y_X1_1_X2, W_
     end
     % \sum_{t} P_{T} (T=t) = 1
     ceq(t+1) = sum(P_T(:,1)) - 1; 
+
+%     disp('P_X2_mid_T')
+%     disp(P_X2_mid_T)
+%     disp('P_T')
+%     disp(P_T)
+%     disp('Epsilon_T')
+%     disp(Epsilon_T)
+%     disp('ceq')
+%     disp(ceq)
+%     disp('-------------------------------')
     
 end

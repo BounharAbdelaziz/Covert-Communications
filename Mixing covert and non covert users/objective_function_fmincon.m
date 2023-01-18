@@ -25,12 +25,22 @@ function [loss] = objective_function_fmincon(probas_and_eps, W_Y_X1_1_X2, W_Y_X1
         index = index + 1;
     end
 
+%     P_X2_mid_T = zeros(2, 1);
+%     % First line is for X2=0
+%     P_X2_mid_T(1,1) = probas_and_eps(1);
+%     % Second line is for X2= 1
+%     P_X2_mid_T(2,1) = probas_and_eps(2);
+%     
+%     % P_T and Epsilon_T are vectors of size (T_cardinality, 1)
+%     P_T = [probas_and_eps(3)];
+%     Epsilon_T = [probas_and_eps(4)];
+
+    r1 = CovertCommunication.covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG_covert);  
+    r2 = CovertCommunication.conditional_MI(P_T, P_X2_mid_T, W_Y_X1_0_X2, X2_cardinality, Y_cardinality);
+
+
     % multiply with -1 for fmincon to the maximization and add mu_1 and
     % mu_2 to allow getting all points in the boudary.
-
-    r1 = -1 * mu_1 * CovertCommunication.covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG_covert);  
-    r2 = -1 * mu_2 * CovertCommunication.conditional_MI(P_T, P_X2_mid_T, W_Y_X1_0_X2, X2_cardinality, Y_cardinality);
-
-    loss = r1 + r2;
+    loss = (-1* mu_1 *r1) + (-1 * mu_2 *r2);
 
 end

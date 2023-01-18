@@ -12,7 +12,7 @@ seed = 1998;
 rng(seed);
 
 % simulation parameters
-step_size = 0.01;
+step_size = 0.1;
 lb_mu_1 = 0;
 ub_mu_1 = 1;
 lb_mu_2 = 0;
@@ -20,9 +20,9 @@ ub_mu_2 = 1;
 total_runs = ((ub_mu_1-lb_mu_1)/step_size)*((ub_mu_2-lb_mu_2)/step_size);
 
 % \matchal{T} is of cardinality \leq 4
-T_cardinalities               = [2];
-X2_cardinalities              = [2];
-sk_budgets                    = [0.5];
+T_cardinalities               = [1,2];
+X2_cardinalities              = [2,2];
+sk_budgets                    = [1,1];
 X1_cardinalities              = 2*ones(length(T_cardinalities)); % always 2.
 
 % ploting parameters
@@ -40,12 +40,6 @@ assert(length(T_cardinalities) == length(sk_budgets))
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Rate Region simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% non linear constraints
-nonlcon = @(probas_and_eps) my_rate_constraints(probas_and_eps);
-
-% optimization options
-options = optimoptions(@fmincon,'StepTolerance',1e-15,'FunctionTolerance',1e-15,'OptimalityTolerance',1e-15,'MaxFunctionEvaluations',1e+10, 'MaxIterations', 1e3, 'Display','off');
-
 % we add 3 because we add manually missing points:
 %     (r1=0,r2=0) (r1=0,max r2) (max r1, r2=0)
 N = total_runs +3;
@@ -54,6 +48,13 @@ N = total_runs +3;
 r1_vects = zeros(N, length(T_cardinalities)); % length(T_cardinalities) is the number of experiments
 r2_vects = zeros(N, length(T_cardinalities));
 rk_vects = zeros(N, length(T_cardinalities));
+
+% optimization options
+% InitBarrierParam helps with feasibility ;
+% (https://groups.google.com/g/comp.soft-sys.matlab/c/rxR6ErkoKXY?pli=1)
+% 'InitBarrierParam', 1e10,
+options = optimoptions(@fmincon, 'Algorithm', 'interior-point', 'StepTolerance',1e-15,'FunctionTolerance',1e-15,'OptimalityTolerance',1e-15,'MaxFunctionEvaluations',1e+10, 'MaxIterations', 1e3, 'Display','off');
+
 
 % For each experiment from the list of comparative experiments.
 for experiment=1:length(T_cardinalities)
@@ -74,11 +75,24 @@ for experiment=1:length(T_cardinalities)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fix the channel law %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+    % For this channel, the diverence in divergence is always negative.
+%     W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.1, 0.2, 0.3, 0.4;
+%                 0.23,0.46, 0.12, 0.19; 0.33,0.26, 0.22, 0.19];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+%     W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
+%                 0.33,0.15, 0.23, 0.29; 0.23,0.26, 0.22, 0.29];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+
     % For this channel, the diverence in divergence is always positive.
     W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.2, 0.2, 0.3, 0.3;
                 0.23,0.26, 0.22, 0.29; 0.23,0.26, 0.22, 0.29];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
     W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
                 0.43,0.05, 0.33, 0.19; 0.23,0.16, 0.42, 0.19];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+%     
+    % For this channel, the diverence in divergence is NOT always positive.
+%     W_Y_X1_X2 = [0.2699, 0.1778, 0.3654, 0.1869; 0.1354, 0.0257, 0.5771, 0.2618;
+%                  0.5998, 0.0983, 0.1839, 0.1180; 0.0186, 0.6658, 0.0725, 0.2431];
+% 
+%     W_Z_X1_X2 = [0.3872, 0.2845, 0.3081, 0.0202; 0.0717, 0.2060, 0.1655, 0.5568;
+%                  0.5419, 0.2992, 0.0587, 0.1002; 0.2741, 0.4258, 0.2249, 0.0752];
     
     % Extract specific channel laws
     [W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2]    = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
@@ -103,7 +117,7 @@ for experiment=1:length(T_cardinalities)
             nonlcon = @(probas_and_eps) my_rate_constraints(probas_and_eps, sk_budget, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, DEBUG_covert);
 
             % choose a new random point
-            probas_and_eps_guess = zeros(guessing_vector_cardinality, 1);
+            probas_and_eps_guess = rand(guessing_vector_cardinality, 1);
             
             % optimize probas_and_eps_guess
             [b_min,fval] = fmincon(function_to_maximize,probas_and_eps_guess,[],[],[],[],lb,ub,nonlcon,options);
@@ -154,6 +168,10 @@ for experiment=1:length(T_cardinalities)
                 disp(P_T)
                 disp('Epsilon_T')
                 disp(Epsilon_T)
+                disp('sum(P_X2_mid_T)')
+                disp(sum(P_X2_mid_T))
+                disp('sum(P_T)')
+                disp(sum(P_T))
             end
 
         end

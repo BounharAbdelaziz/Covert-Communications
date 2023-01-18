@@ -23,15 +23,15 @@ DEBUG_covert_theorem_contraints = 0;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Rate Region simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % simulations parameters
-N_epochs                        = 500;
+N_epochs                        = 50000;
 draw_covert_point               = 0; % covert region (can be ignored)
 draw_convhull                   = 1;
 plot_3d                         = 1;
 
 % \matchal{T} is of cardinality \leq 4
-T_cardinalities                 = [4000];
+T_cardinalities                 = [1];
 X2_cardinalities                = [2];
-sk_budgets                      = [1];
+sk_budgets                      = [0.5];
 X1_cardinalities                = 2*ones(length(T_cardinalities)); % always 2.
 max_epsilon_t_s                 = ones(length(T_cardinalities));
 optimize_epsilons_T_s           = ones(length(T_cardinalities));
@@ -89,16 +89,27 @@ for experiment=1:length(T_cardinalities)
     max_P_X1_1                      = 1;
     % channel law initialization
     if (fixed_channel_laws)
+
         % Fixing the channel law instead of generating it
-%         W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.1, 0.2, 0.3, 0.4;
-%                     0.23,0.46, 0.12, 0.19; 0.33,0.26, 0.22, 0.19];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
-%         W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
-%                     0.33,0.15, 0.23, 0.29; 0.23,0.26, 0.22, 0.29];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
-        % For this channel, the diverence in divergence is always positive.
-        W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.2, 0.2, 0.3, 0.3;
-                    0.23,0.26, 0.22, 0.29; 0.23,0.26, 0.22, 0.29];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+        W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.1, 0.2, 0.3, 0.4;
+                    0.23,0.46, 0.12, 0.19; 0.33,0.26, 0.22, 0.19];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
         W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
-                    0.43,0.05, 0.33, 0.19; 0.23,0.16, 0.42, 0.19];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+                    0.33,0.15, 0.23, 0.29; 0.23,0.26, 0.22, 0.29];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+
+        % For this channel, the diverence in divergence is always positive.
+%         W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.2, 0.2, 0.3, 0.3;
+%                     0.23,0.26, 0.22, 0.29; 0.23,0.26, 0.22, 0.29];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+%         W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
+%                     0.43,0.05, 0.33, 0.19; 0.23,0.16, 0.42, 0.19];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+
+        % For this channel, the diverence in divergence is NOT always positive.
+%         W_Y_X1_X2 = [0.2699, 0.1778, 0.3654, 0.1869; 0.1354, 0.0257, 0.5771, 0.2618;
+%                      0.5998, 0.0983, 0.1839, 0.1180; 0.0186, 0.6658, 0.0725, 0.2431];
+%     
+%         W_Z_X1_X2 = [0.3872, 0.2845, 0.3081, 0.0202; 0.0717, 0.2060, 0.1655, 0.5568;
+%                      0.5419, 0.2992, 0.0587, 0.1002; 0.2741, 0.4258, 0.2249, 0.0752];
+    
+    % For this channel, the diverence in divergence is NOT always positive.
     end
     
     % running the experiment

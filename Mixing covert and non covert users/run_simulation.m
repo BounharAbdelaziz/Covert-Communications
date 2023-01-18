@@ -117,6 +117,10 @@ function [r1_vect, r2_vect, rk_vect, higher_than_sk_budgets, cpt, cpt_higher_tha
             % As it's deterministic
             P_X2_mid_T          = ones(X2_cardinality, T_cardinality);
         end
+%         disp('P_X2_mid_T');
+%         disp(P_X2_mid_T);
+%         disp('size(P_X2_mid_T)');
+%         disp(size(P_X2_mid_T));
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Verify if conditions are met with these choices %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     

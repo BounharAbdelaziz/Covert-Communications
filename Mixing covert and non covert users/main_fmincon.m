@@ -8,26 +8,28 @@
 clear all;
 
 % seed for reproducibility
-seed = 1998;
+seed = 100;
 rng(seed);
 
 % simulation parameters
-step_size = 0.1;
+step_size = 0.05;%0.005;
 lb_mu_1 = 0;
 ub_mu_1 = 1;
 lb_mu_2 = 0;
 ub_mu_2 = 1;
-total_runs = ((ub_mu_1-lb_mu_1)/step_size)*((ub_mu_2-lb_mu_2)/step_size);
+total_runs = (1+(ub_mu_1-lb_mu_1)/step_size)*(1+(ub_mu_2-lb_mu_2)/step_size);
+generate_random_laws = 0;
 
 % \matchal{T} is of cardinality \leq 4
-T_cardinalities               = [1,2];
+T_cardinalities               = [2,2];
 X2_cardinalities              = [2,2];
-sk_budgets                    = [1,1];
+sk_budgets                    = [0.3, 0.8];
 X1_cardinalities              = 2*ones(length(T_cardinalities)); % always 2.
 
 % ploting parameters
-plot_3d                       = 1;
-draw_convhull                 = 1;
+plot_3d                         = 1;
+draw_convhull                   = 1;
+draw_dashed_line_square_region  = 0;
 
 % Prints if debug mode
 DEBUG                           = 0;
@@ -37,6 +39,89 @@ DEBUG_covert_theorem_contraints = 0;
 % make sure we don't have a missing value
 assert(length(T_cardinalities) == length(X2_cardinalities))
 assert(length(T_cardinalities) == length(sk_budgets))
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fix the channel law %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+T_cardinality           = T_cardinalities(1);
+X2_cardinality          = X2_cardinalities(1);
+X1_cardinality          = X1_cardinalities(1);    
+X1_X2_cardinality       = X1_cardinality*X2_cardinality; % cartesian product
+Y_cardinality           = X1_X2_cardinality;
+if (ismembertol(X2_cardinality, 2, 1e-6) && ~generate_random_laws)
+    disp('[INFO] Running experiment with fixed channel laws')
+    % For this channel, the diverence in divergence is always negative.
+%         W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.1, 0.2, 0.3, 0.4;
+%                     0.23,0.46, 0.12, 0.19; 0.33,0.26, 0.22, 0.19];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+%         W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
+%                     0.33,0.15, 0.23, 0.29; 0.23,0.26, 0.22, 0.29];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+%     
+    
+%     W_Y_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
+%                 0.23,0.26, 0.22, 0.29; 0.23,0.26, 0.22, 0.29];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+%     W_Z_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.2, 0.2, 0.3, 0.3;
+%                 0.43,0.05, 0.33, 0.19; 0.23,0.16, 0.42, 0.19];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+
+%     W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.1, 0.2, 0.3, 0.4;
+%                  0.25,0.45, 0.1, 0.2; 0.35,0.25, 0.2, 0.2];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+%     W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
+%                     0.35,0.15, 0.2, 0.3; 0.23,0.27, 0.2, 0.3];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+
+    W_Y_X1_X2 = [0.35, 0.11, 0.31, 0.23; 0.03, 0.56, 0.4, 0.01;
+                 0.51, 0.02, 0.17, 0.30; 0.04,0.33, 0.62, 0.01];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+    W_Z_X1_X2 = [0.3, 0.5, 0.08, 0.12; 0.21, 0.32, 0.39, 0.08;
+                    0.16, 0.28, 0.37, 0.19; 0.48, 0.1, 0.38, 0.04];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+
+    % For this channel, the diverence in divergence is always positive.
+%         W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.2, 0.2, 0.3, 0.3;
+%                     0.23,0.26, 0.22, 0.29; 0.23,0.26, 0.22, 0.29];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+%         W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
+%                     0.43,0.05, 0.33, 0.19; 0.23,0.16, 0.42, 0.19];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+
+% shows the difference in gain rate
+%     W_Y_X1_X2 =
+% 
+%     0.0465    0.1532    0.1948    0.6055
+%     0.4491    0.1871    0.3616    0.0022
+%     0.1663    0.5023    0.2746    0.0569
+%     0.2430    0.1013    0.4487    0.2070
+% 
+%     W_Z_X1_X2 =
+% 
+%     0.2683    0.3196    0.2682    0.1439
+%     0.2575    0.0842    0.1995    0.4587
+%     0.0582    0.0992    0.0845    0.7582
+%     0.4245    0.0166    0.2162    0.3426
+%     
+    % For this channel, the diverence in divergence is NOT always positive.
+%         W_Y_X1_X2 = [0.2699, 0.1778, 0.3654, 0.1869; 0.1354, 0.0257, 0.5771, 0.2618;
+%                      0.5998, 0.0983, 0.1839, 0.1180; 0.0186, 0.6658, 0.0725, 0.2431];
+%     
+%         W_Z_X1_X2 = [0.3872, 0.2845, 0.3081, 0.0202; 0.0717, 0.2060, 0.1655, 0.5568;
+%                      0.5419, 0.2992, 0.0587, 0.1002; 0.2741, 0.4258, 0.2249, 0.0752];
+
+    % Extract specific channel laws
+    [W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2]    = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
+else
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fix a random channel law %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    disp('[INFO] Running experiment with random channel laws')
+    % MAC Channel matrix : We consider the channel Y = (2*X1 + X2 + w) % 4 where all variables are binary => \mathcal{Y} = \{0,1,2,3}
+    % for each Y and fixed (x1, x2) we have a vector of probabilities [y=0, y=1, y=2, y=3]
+
+    W_Y_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1));
+    W_Z_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1));
+    [W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2] = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
+    [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve] = CovertCommunication.check_theorem_conditions(W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG_covert_theorem_contraints);
+      
+    % loop while untill constraint on absolute continuity and difference are met 
+    while (verified_conditions < 1)
+        % to get matrices in the size we want, we do a transpose as
+        % generate_probability_vector doesn't work if a < b.
+        W_Y_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1));
+        W_Z_X1_X2 = transpose(InformationTheory.generate_probability_vector(Y_cardinality, X1_X2_cardinality,1,0,1));
+        [W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2] = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
+        [verified_conditions, absolute_continuity_bob, absolute_continuity_eve, different_output_distributions_eve] = CovertCommunication.check_theorem_conditions(W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, DEBUG_covert_theorem_contraints);
+    end
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Rate Region simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -73,29 +158,11 @@ for experiment=1:length(T_cardinalities)
     lb = zeros(guessing_vector_cardinality,1);
     ub = ones(guessing_vector_cardinality,1);
 
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fix the channel law %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    % For this channel, the diverence in divergence is always negative.
-%     W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.1, 0.2, 0.3, 0.4;
-%                 0.23,0.46, 0.12, 0.19; 0.33,0.26, 0.22, 0.19];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
-%     W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
-%                 0.33,0.15, 0.23, 0.29; 0.23,0.26, 0.22, 0.29];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
-
-    % For this channel, the diverence in divergence is always positive.
-    W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.2, 0.2, 0.3, 0.3;
-                0.23,0.26, 0.22, 0.29; 0.23,0.26, 0.22, 0.29];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
-    W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
-                0.43,0.05, 0.33, 0.19; 0.23,0.16, 0.42, 0.19];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
-%     
-    % For this channel, the diverence in divergence is NOT always positive.
-%     W_Y_X1_X2 = [0.2699, 0.1778, 0.3654, 0.1869; 0.1354, 0.0257, 0.5771, 0.2618;
-%                  0.5998, 0.0983, 0.1839, 0.1180; 0.0186, 0.6658, 0.0725, 0.2431];
-% 
-%     W_Z_X1_X2 = [0.3872, 0.2845, 0.3081, 0.0202; 0.0717, 0.2060, 0.1655, 0.5568;
-%                  0.5419, 0.2992, 0.0587, 0.1002; 0.2741, 0.4258, 0.2249, 0.0752];
+    disp('[INFO] Using the following channel matrix for Bob')
+    disp(W_Y_X1_X2)
     
-    % Extract specific channel laws
-    [W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2]    = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
+    disp('[INFO] Using the following channel matrix for Eve')
+    disp(W_Z_X1_X2)   
 
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Running the simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -131,49 +198,49 @@ for experiment=1:length(T_cardinalities)
             rk_vects(index_rates_experiment, experiment) = rk;
 
             index_rates_experiment = index_rates_experiment +1;
+%             disp(index_rates_experiment)
+        end
 
-            % only in debug mode to check if everything is okay with the
-            % constraints
-            if DEBUG
-                disp('b_min')
-                disp(b_min)
-                [c,ceq] = my_rate_constraints(b_min, sk_budget, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, DEBUG_covert);
-                disp('c')
-                disp(c);
-                disp('ceq')
-                disp(ceq);
-                disp('--------------------------')
-                P_X2_mid_T = zeros(X2_cardinality, T_cardinality);
-                index = 1;
-                for x2=1:X2_cardinality
-                    for t=1:T_cardinality
-                        P_X2_mid_T(x2,t) = b_min(index);
-                        index = index + 1;
-                    end
-                end
-                P_T = zeros(T_cardinality, 1);
+        % only in debug mode to check if everything is okay with the
+        % constraints
+        if DEBUG
+            disp('b_min')
+            disp(b_min)
+            [c,ceq] = my_rate_constraints(b_min, sk_budget, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, DEBUG_covert);
+            disp('c')
+            disp(c);
+            disp('ceq')
+            disp(ceq);
+            disp('--------------------------')
+            P_X2_mid_T = zeros(X2_cardinality, T_cardinality);
+            index = 1;
+            for x2=1:X2_cardinality
                 for t=1:T_cardinality
-                    P_T(t) = b_min(index);
+                    P_X2_mid_T(x2,t) = b_min(index);
                     index = index + 1;
                 end
-            
-                Epsilon_T = zeros(T_cardinality, 1);
-                for t=1:T_cardinality
-                    Epsilon_T(t) = b_min(index);
-                    index = index + 1;
-                end
-                disp('P_X2_mid_T')
-                disp(P_X2_mid_T)
-                disp('P_T')
-                disp(P_T)
-                disp('Epsilon_T')
-                disp(Epsilon_T)
-                disp('sum(P_X2_mid_T)')
-                disp(sum(P_X2_mid_T))
-                disp('sum(P_T)')
-                disp(sum(P_T))
             end
-
+            P_T = zeros(T_cardinality, 1);
+            for t=1:T_cardinality
+                P_T(t) = b_min(index);
+                index = index + 1;
+            end
+        
+            Epsilon_T = zeros(T_cardinality, 1);
+            for t=1:T_cardinality
+                Epsilon_T(t) = b_min(index);
+                index = index + 1;
+            end
+            disp('P_X2_mid_T')
+            disp(P_X2_mid_T)
+            disp('P_T')
+            disp(P_T)
+            disp('Epsilon_T')
+            disp(Epsilon_T)
+            disp('sum(P_X2_mid_T)')
+            disp(sum(P_X2_mid_T))
+            disp('sum(P_T)')
+            disp(sum(P_T))
         end
     end
 
@@ -192,8 +259,9 @@ for experiment=1:length(T_cardinalities)
     % add  (max r1, r2=0)
     r1_vects(total_runs+3, experiment)=max_r1;
     r2_vects(total_runs+3, experiment)=0;
+%     step_size = 0.1;
 end
-
+           
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Legends %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % To know which size for legends_convhull cell.
@@ -206,7 +274,7 @@ for experiment=1:length(T_cardinalities)
 end
 % for legends
 legends = cell(length(T_cardinalities), 1);
-legends_convhull = cell(sum_non_zero_all, 1);
+legends_convhull = cell(sum_non_zero_all+2, 1);
 
 for experiment=1:length(T_cardinalities)
     legends(experiment) = {['X2 cardinality: ', num2str(X2_cardinalities(experiment)), ' // T cardinality: ', num2str(T_cardinalities(experiment)), ' // Secret-Key budget: ',  num2str(sk_budgets(experiment))]};
@@ -219,7 +287,9 @@ for experiment=1:length(T_cardinalities)
     check_sum = r1_vects(N, experiment) + r2_vects(N-1, experiment); % max_r1 + max_r2
     if (check_sum >0)
         legends_convhull(index_) = {['X2 cardinality: ', num2str(X2_cardinalities(experiment)), ' // T cardinality: ', num2str(T_cardinalities(experiment)), ' // Secret-Key budget: ',  num2str(sk_budgets(experiment))]};
-        index_ = index_ + 1;
+        % for the delimiter of the square regions
+        legends_convhull(index_+1) = {['Square region delimiter for ', 'X2 cardinality: ', num2str(X2_cardinalities(experiment)), ' // T cardinality: ', num2str(T_cardinalities(experiment)), ' // Secret-Key budget: ',  num2str(sk_budgets(experiment))]};
+        index_ = index_ + 2; % add 2 instead of 1 because we have two legends for each one
     end
 end
 
@@ -229,6 +299,20 @@ y_title = 'Non-Covert user rate';
 z_title = 'Secret-Key square-root rate';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Plots %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+positions = zeros(length(T_cardinalities),1);
+for experiment=1:length(T_cardinalities)
+
+    % fix the precision
+    digits(2);
+    maxval = max(vpa(r2_vects(1:total_runs, experiment)));
+    disp(vpa(maxval))
+
+    % find the position of the last one in the line of maximum non covert rate
+    position = find(vpa(r2_vects(1:total_runs,experiment))==vpa(maxval),1,'last');    
+    positions(experiment,1) = position;
+end
+disp(positions)
 
 % 3D plot of the region (secret key rate, covert rate, non-covert rate)
 if (plot_3d)
@@ -296,7 +380,21 @@ if draw_convhull
             disp(['[INFO] Experiment ', num2str(experiment), ' has only one point (0,0,0). No convex hull can be obtained!']);
             continue
         end
-        hold on
+        hold on        
+        
+        if draw_dashed_line_square_region
+            r1_star = r1_vects(positions(experiment),experiment);
+            r2_star = r2_vects(positions(experiment),experiment);
+    
+            x2 = r1_star;
+            y2 = linspace(0,r2_star,100);
+            if (ismembertol(experiment, 1, 1e-10))
+                plot(x2*ones(size(y2)),y2, '--black');
+            else
+                plot(x2*ones(size(y2)),y2, '--red');
+            end
+            hold on
+        end
     end
     title(ax5, title_plot);
     xlabel(ax5,x_title);

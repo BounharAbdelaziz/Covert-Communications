@@ -35,9 +35,34 @@ function [loss] = objective_function_fmincon(probas_and_eps, W_Y_X1_1_X2, W_Y_X1
 %     P_T = [probas_and_eps(3)];
 %     Epsilon_T = [probas_and_eps(4)];
 
-    r1 = CovertCommunication.covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG_covert);  
-    r2 = CovertCommunication.conditional_MI(P_T, P_X2_mid_T, W_Y_X1_0_X2, X2_cardinality, Y_cardinality);
 
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Marginal distributions P_X1 and P_X2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    P_X2 = zeros(1,X2_cardinality);
+    for x2=1:X2_cardinality
+        avg = 0;
+        for t=1:T_cardinality
+            avg = avg + P_X2_mid_T(x2,t) * P_T(t);
+        end
+        P_X2(x2) = avg;
+    end
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Marginal distributions W_Y_X1_0 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    W_Y_X1_0 = zeros(1, Y_cardinality);
+    for y=1:Y_cardinality
+        W_y_X1_0 = 0;
+        for x2=1:X2_cardinality
+            W_y_X1_0 = W_y_X1_0 + P_X2(x2) * W_Y_X1_0_X2(x2,y);
+        end
+        W_Y_X1_0(y) = W_y_X1_0;
+    end    
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Compute rates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    r1 = CovertCommunication.covert_message_rate(P_T, P_X2_mid_T, Epsilon_T, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, X2_cardinality, Y_cardinality, X1_X2_cardinality, DEBUG_covert);  
+%     r2 = CovertCommunication.conditional_MI(P_T, P_X2_mid_T, W_Y_X1_0_X2, X2_cardinality, Y_cardinality);
+    r2 = CovertCommunication.non_covert_rate(P_T, P_X2_mid_T, W_Y_X1_0, W_Y_X1_0_X2, X2_cardinality, DEBUG_covert);
 
     % multiply with -1 for fmincon to the maximization and add mu_1 and
     % mu_2 to allow getting all points in the boudary.

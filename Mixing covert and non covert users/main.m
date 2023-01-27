@@ -23,15 +23,15 @@ DEBUG_covert_theorem_contraints = 0;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Rate Region simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % simulations parameters
-N_epochs                        = 50000;
+N_epochs                        = 4000;
 draw_covert_point               = 0; % covert region (can be ignored)
 draw_convhull                   = 1;
 plot_3d                         = 1;
 
 % \matchal{T} is of cardinality \leq 4
-T_cardinalities                 = [1];
-X2_cardinalities                = [2];
-sk_budgets                      = [0.5];
+T_cardinalities                 = [1,2];
+X2_cardinalities                = [2,2];
+sk_budgets                      = [0.5,0.5];
 X1_cardinalities                = 2*ones(length(T_cardinalities)); % always 2.
 max_epsilon_t_s                 = ones(length(T_cardinalities));
 optimize_epsilons_T_s           = ones(length(T_cardinalities));

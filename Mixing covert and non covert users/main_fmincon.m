@@ -12,13 +12,17 @@ seed = 100;
 rng(seed);
 
 % simulation parameters
-step_size = 0.05;%0.005;
+step_size = 0.1;%0.005;
 lb_mu_1 = 0;
 ub_mu_1 = 1;
 lb_mu_2 = 0;
 ub_mu_2 = 1;
 total_runs = (1+(ub_mu_1-lb_mu_1)/step_size)*(1+(ub_mu_2-lb_mu_2)/step_size);
 generate_random_laws = 0;
+
+% as we use the same code of , we set optimization_P_X2 to 3 because we
+% always optimize P_X2_mid_T
+optimization_P_X2 = 3;
 
 % \matchal{T} is of cardinality \leq 4
 T_cardinalities               = [2,2];
@@ -178,10 +182,10 @@ for experiment=1:length(T_cardinalities)
         for mu_2=lb_mu_2:step_size:ub_mu_2
             
             % optimization function
-            function_to_maximize = @(probas_and_eps) objective_function_fmincon(probas_and_eps, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, Y_cardinality, X1_X2_cardinality, mu_1, mu_2, DEBUG_covert);
+            function_to_maximize = @(probas_and_eps) objective_function_fmincon(probas_and_eps, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, Y_cardinality, X1_X2_cardinality, mu_1, mu_2, optimization_P_X2, DEBUG_covert);
 
             % constraints
-            nonlcon = @(probas_and_eps) my_rate_constraints(probas_and_eps, sk_budget, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, DEBUG_covert);
+            nonlcon = @(probas_and_eps) my_rate_constraints(probas_and_eps, sk_budget, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, optimization_P_X2, DEBUG_covert);
 
             % choose a new random point
             probas_and_eps_guess = rand(guessing_vector_cardinality, 1);
@@ -191,7 +195,7 @@ for experiment=1:length(T_cardinalities)
             
             % compute the rates with the optimal probas_and_eps_guess for
             % the fixed mu_1 and mu_2.
-            [r1, r2, rk] = compute_rates_for_fmincon(b_min, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, Y_cardinality, X1_X2_cardinality, sk_budget, DEBUG_covert);
+            [r1, r2, rk] = compute_rates_for_fmincon(b_min, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, Y_cardinality, X1_X2_cardinality, sk_budget, optimization_P_X2, DEBUG_covert);
 
             r1_vects(index_rates_experiment, experiment) = r1;
             r2_vects(index_rates_experiment, experiment) = r2;

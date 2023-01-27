@@ -1,4 +1,4 @@
-function[c,ceq] = my_rate_constraints(probas_and_eps, sk_budget, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, DEBUG_covert)
+function[c,ceq] = my_rate_constraints(probas_and_eps, sk_budget, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, optimization_P_X2, DEBUG_covert)
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Extracting probabilities %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -7,11 +7,27 @@ function[c,ceq] = my_rate_constraints(probas_and_eps, sk_budget, W_Y_X1_1_X2, W_
     % compute the secret key rate and compare it to the budget.
     
     P_X2_mid_T = zeros(X2_cardinality, T_cardinality);
-    index = 1;
-    for x2=1:X2_cardinality
+    
+    % Don't optimize P_X2_mid_T and set P_{X_2|T}(1|t)=1. (line 1)
+    if (optimization_P_X2 == 1)        
         for t=1:T_cardinality
-            P_X2_mid_T(x2,t) = probas_and_eps(index);
-            index = index + 1;
+            P_X2_mid_T(2,t) = 1; % index starts with 1 so x2=1 is in index 2
+        end
+        index = 1; % to use it latter for P_T and Epsilon_T
+    % Don't optimize P_X2_mid_T and set P_{X_2|T}(1|t)=0, i.e. set P_{X_2|T}(0|t)=1. (line 2)
+    elseif (optimization_P_X2 == 2)
+        for t=1:T_cardinality
+            P_X2_mid_T(1,t) = 1; % index starts with 1 so x2=0 is in index 1
+        end
+        index = 1; % to use it latter for P_T and Epsilon_T
+    % Optimize P_X2_mid_T
+    elseif (optimization_P_X2 == 3) 
+        index = 1;
+        for x2=1:X2_cardinality
+            for t=1:T_cardinality
+                P_X2_mid_T(x2,t) = probas_and_eps(index);
+                index = index + 1;
+            end
         end
     end
 
@@ -36,13 +52,18 @@ function[c,ceq] = my_rate_constraints(probas_and_eps, sk_budget, W_Y_X1_1_X2, W_
 %     c = [];
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Probabilities constraint (should sum to 1)  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
-    % \sum_{x2} P_{X2 \mid T} (x2 \mid T=t) = 1
-    for t=1:T_cardinality
-        ceq(t) = sum(P_X2_mid_T(:,t)) - 1; 
-    end
-    % \sum_{t} P_{T} (T=t) = 1
-    ceq(t+1) = sum(P_T(:,1)) - 1; 
+    if (optimization_P_X2 == 3)
+        % \sum_{x2} P_{X2 \mid T} (x2 \mid T=t) = 1
+        for t=1:T_cardinality
+            ceq(t) = sum(P_X2_mid_T(:,t)) - 1; 
+        end
+        % \sum_{t} P_{T} (T=t) = 1
+        ceq(t+1) = sum(P_T(:,1)) - 1; 
+    else
+        % only \sum_{t} P_{T} (T=t) = 1 as P_X2_mid_T is not optimized in
+        % the other cases
+        ceq(1) = sum(P_T(:,1)) - 1;
+    end    
 
 %     disp('P_X2_mid_T')
 %     disp(P_X2_mid_T)

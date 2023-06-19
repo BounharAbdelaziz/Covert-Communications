@@ -46,11 +46,9 @@ classdef InformationTheory
             chi = 0;
             for i=1:length(P)
                 difference_power_k = (P(i)-Q(i)).^k;
-%                 P_i_power_k_1 = (P(i)).^(k-1);
-%                 ratio = difference_power_k/P_i_power_k_1;
-                %it should be this instead...
-                Q_i_power_k_1 = (Q(i)).^(k-1);
-                ratio = difference_power_k/Q_i_power_k_1;
+                P_i_power_k_1 = (Q(i)).^(k-1);
+%                 Q_i_power_k_1 = (Q(i)).^(k-1);
+                ratio = difference_power_k/P_i_power_k_1;
                 chi = chi + ratio;
             end
                         
@@ -68,9 +66,8 @@ classdef InformationTheory
             chi = 0;
             for i=1:length(P)
                 difference_power_k = (P(i)-Q(i)).^2;
-%                 ratio = difference_power_k/P(i);
-                %it should be this instead...
-                ratio = difference_power_k/Q(i);
+%                 ratio = difference_power_k/Q(i);
+                ratio = difference_power_k/P(i);
                 chi = chi + ratio;
             end
                         

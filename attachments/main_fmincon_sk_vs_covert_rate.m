@@ -12,7 +12,7 @@ seed = 100;
 rng(seed);
 
 % simulation parameters
-step_size = 0.5;%0.005;
+step_size = 0.5;%0.005;%0.005;
 lb_mu_1 = 0;
 ub_mu_1 = 1;
 lb_mu_2 = 0;
@@ -21,7 +21,7 @@ total_runs = (1+(ub_mu_1-lb_mu_1)/step_size)*(1+(ub_mu_2-lb_mu_2)/step_size);
 generate_random_laws = 0;
 
 % \matchal{T} is of cardinality \leq 4
-T_cardinalities               = [1,1,1]; %[2,2,2];
+T_cardinalities               = [2,2,2];
 X2_cardinalities              = [2,2,2];
 sk_budget_min                 = 0;
 sk_budget_max                 = 1;

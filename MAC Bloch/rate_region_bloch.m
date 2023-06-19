@@ -8,9 +8,9 @@ X1_cardinality                  = 2;
 X2_cardinality                  = 2;
 X1_X2_cardinality               = 4;
 Y_cardinality                   = 4;
-N_epochs                        = 5000;
+N_epochs                        = 200000;
 optimize_rhos                   = 1;
-generate_random_channel_laws    = 0;
+generate_random_channel_laws    = 1;
 % maximum value of P_{X1}(1)
 max_P_X1_1                      = 1;
 cpt_higher_than_max_P_X1_1      = 0;

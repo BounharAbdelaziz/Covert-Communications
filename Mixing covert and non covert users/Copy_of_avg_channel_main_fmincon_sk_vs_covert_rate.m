@@ -12,28 +12,30 @@ seed = 100;
 rng(seed);
 
 % simulation parameters
-step_size = 0.5;%0.005;
+step_size = 0.05;%0.005;%0.005;
 lb_mu_1 = 0;
 ub_mu_1 = 1;
 lb_mu_2 = 0;
 ub_mu_2 = 1;
+lambdas_avg_channel = [0 0 0.65] ;
 total_runs = (1+(ub_mu_1-lb_mu_1)/step_size)*(1+(ub_mu_2-lb_mu_2)/step_size);
 generate_random_laws = 0;
 
 % \matchal{T} is of cardinality \leq 4
-T_cardinalities               = [2];
-X2_cardinalities              = [2];
+T_cardinalities               = [1,1,1];
+X2_cardinalities              = [2,2,2];
 sk_budget_min                 = 0;
-sk_budget_max                 = 1.5;
-sk_budget_step_size           = 0.001;
+sk_budget_max                 = 1;
+sk_budget_step_size           = 0.01;
 sk_budgets                    = sk_budget_min:sk_budget_step_size:sk_budget_max;
 X1_cardinalities              = 2*ones(length(T_cardinalities)); % always 2.
 
 % We use the following notation:
-% 1: we set P_{X_2|T}(1|t)=1 for any t (that is T
-% 2: we set P_{X_2|T}(1|t)=0 for any t (that is 
-% 3: we optimise over P_{X_2|T}.                    
-optimization_P_X2             = [1 2 3];
+% 1: we set P_{X_2|T}(1|t)=1 for any t (that is X2=1 always).
+% 2: we set P_{X_2|T}(1|t)=0 for any t (that is X2=0 always).
+% 3: we optimise over P_{X_2|T}.      
+% 4: we take the average of the two channels X_2=0 and X_2=1.
+optimizations_P_X2             = [1 2 1];
 
 % ploting parameters
 plot_3d                         = 1;
@@ -46,7 +48,8 @@ DEBUG_covert                    = 0;
 DEBUG_covert_theorem_contraints = 0;
 
 % make sure we don't have a missing value
-assert(length(T_cardinalities) == length(X2_cardinalities))
+assert(length(optimizations_P_X2) == length(T_cardinalities))
+assert(length(optimizations_P_X2) == length(X2_cardinalities))
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Fix the channel law %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -57,55 +60,13 @@ X1_X2_cardinality       = X1_cardinality*X2_cardinality; % cartesian product
 Y_cardinality           = X1_X2_cardinality;
 if (ismembertol(X2_cardinality, 2, 1e-6) && ~generate_random_laws)
     disp('[INFO] Running experiment with fixed channel laws')
-    % For this channel, the diverence in divergence is always negative.
-%         W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.1, 0.2, 0.3, 0.4;
-%                     0.23,0.46, 0.12, 0.19; 0.33,0.26, 0.22, 0.19];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
-%         W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
-%                     0.33,0.15, 0.23, 0.29; 0.23,0.26, 0.22, 0.29];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
-%     
-    
-%     W_Y_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
-%                 0.23,0.26, 0.22, 0.29; 0.23,0.26, 0.22, 0.29];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
-%     W_Z_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.2, 0.2, 0.3, 0.3;
-%                 0.43,0.05, 0.33, 0.19; 0.23,0.16, 0.42, 0.19];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
 
-%     W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.1, 0.2, 0.3, 0.4;
-%                  0.25,0.45, 0.1, 0.2; 0.35,0.25, 0.2, 0.2];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
-%     W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
-%                     0.35,0.15, 0.2, 0.3; 0.23,0.27, 0.2, 0.3];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
-
+% channels in equation 35 (used for example 2 and 3)
     W_Y_X1_X2 = [0.35, 0.11, 0.31, 0.23; 0.03, 0.56, 0.4, 0.01;
                  0.51, 0.02, 0.17, 0.30; 0.04,0.33, 0.62, 0.01];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
     W_Z_X1_X2 = [0.3, 0.5, 0.08, 0.12; 0.21, 0.32, 0.39, 0.08;
-                    0.16, 0.28, 0.37, 0.19; 0.48, 0.1, 0.38, 0.04];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+                 0.16, 0.28, 0.37, 0.19; 0.48, 0.1, 0.38, 0.04];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
 
-    % For this channel, the diverence in divergence is always positive.
-%         W_Y_X1_X2 = [0.2, 0.3, 0.2, 0.3; 0.2, 0.2, 0.3, 0.3;
-%                     0.23,0.26, 0.22, 0.29; 0.23,0.26, 0.22, 0.29];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
-%         W_Z_X1_X2 = [0.3, 0.2, 0.1, 0.4; 0.3, 0.2, 0.15, 0.35;
-%                     0.43,0.05, 0.33, 0.19; 0.23,0.16, 0.42, 0.19];  %% first X2_cardinality rows for x1=0 and latter for  x1=1 
-
-% shows the difference in gain rate
-%     W_Y_X1_X2 =
-% 
-%     0.0465    0.1532    0.1948    0.6055
-%     0.4491    0.1871    0.3616    0.0022
-%     0.1663    0.5023    0.2746    0.0569
-%     0.2430    0.1013    0.4487    0.2070
-% 
-%     W_Z_X1_X2 =
-% 
-%     0.2683    0.3196    0.2682    0.1439
-%     0.2575    0.0842    0.1995    0.4587
-%     0.0582    0.0992    0.0845    0.7582
-%     0.4245    0.0166    0.2162    0.3426
-%     
-    % For this channel, the diverence in divergence is NOT always positive.
-%         W_Y_X1_X2 = [0.2699, 0.1778, 0.3654, 0.1869; 0.1354, 0.0257, 0.5771, 0.2618;
-%                      0.5998, 0.0983, 0.1839, 0.1180; 0.0186, 0.6658, 0.0725, 0.2431];
-%     
-%         W_Z_X1_X2 = [0.3872, 0.2845, 0.3081, 0.0202; 0.0717, 0.2060, 0.1655, 0.5568;
-%                      0.5419, 0.2992, 0.0587, 0.1002; 0.2741, 0.4258, 0.2249, 0.0752];
 
     % Extract specific channel laws
     [W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2]    = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
@@ -138,6 +99,8 @@ r1_vects = zeros(total_runs, length(T_cardinalities)); % length(T_cardinalities)
 r2_vects = zeros(total_runs, length(T_cardinalities));
 rk_vects = zeros(total_runs, length(T_cardinalities));
 
+r1_sk    = zeros(length(sk_budgets), length(T_cardinalities));
+
 % optimization options
 % InitBarrierParam helps with feasibility ;
 % (https://groups.google.com/g/comp.soft-sys.matlab/c/rxR6ErkoKXY?pli=1)
@@ -151,9 +114,52 @@ disp('[INFO] Using the following channel matrix for Eve')
 disp(W_Z_X1_X2)   
 
 % For each experiment from the list of comparative experiments.
-for experiment=1:length(T_cardinalities)
+for experiment=1:length(optimizations_P_X2)    
+
+    disp(['[INFO] Running experiment ', num2str(experiment),'/',num2str(length(optimizations_P_X2)), '...']);
+
+
+    % for the case where we take the average. The trick to make the code
+    % unchanged is to consider that it's like optimization_P_X2=1 (i.e.
+    % always sending X_2=0) and complete with zeros
+    if (experiment > 2) 
+%         W_Y_X1_X2_0 = [0.35, 0.11, 0.31, 0.23; 0.25,0.25,0.25,0.25; 0.03, 0.56, 0.4, 0.01; 0.25,0.25,0.25,0.25];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+%         W_Y_X1_X2_1 = [0.25,0.25,0.25,0.25; 0.51, 0.02, 0.17, 0.30;0.25,0.25,0.25,0.25; 0.04,0.33, 0.62, 0.01];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+%     
+%         W_Y_X1_X2 = lambdas_avg_channel(experiment)*W_Y_X1_X2_0 + (1-lambdas_avg_channel(experiment))*W_Y_X1_X2_1 ;
+%         
+%         W_Z_X1_X2_0 = [0.3, 0.5, 0.08, 0.12; 0.25,0.25,0.25,0.25; 0.16, 0.28, 0.37, 0.19; 0.25,0.25,0.25,0.25];  %% first X2_cardinality rows for x1=0 and latter for  x1=1
+%         W_Z_X1_X2_1 = [0.25,0.25,0.25,0.25; 0.21, 0.32, 0.39, 0.08;  0.25,0.25,0.25,0.25; 0.48, 0.1, 0.38, 0.04;];  %% first X2_cardinality rows for x1=0 and latter for  x1=1
+%     
+%         W_Z_X1_X2 = lambdas_avg_channel(experiment)*W_Z_X1_X2_0 + (1-lambdas_avg_channel(experiment))*W_Z_X1_X2_1;
+
+
+% %     W_Y_X1_X2 = [0.35, 0.11, 0.31, 0.23; 0.03, 0.56, 0.4, 0.01;
+% %                  0.51, 0.02, 0.17, 0.30; 0.04,0.33, 0.62, 0.01];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+% %     W_Z_X1_X2 = [0.3, 0.5, 0.08, 0.12; 0.21, 0.32, 0.39, 0.08;
+% %                  0.16, 0.28, 0.37, 0.19; 0.48, 0.1, 0.38, 0.04]; 
+
+        W_Y_X1_X2_0 = [0.35, 0.11, 0.31, 0.23; 0 0 0 0; 0.51, 0.02, 0.17, 0.30; 0 0 0 0];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
+        W_Y_X1_X2_1 = [0 0 0 0; 0.03, 0.56, 0.4, 0.01;  0 0 0 0; 0.04,0.33, 0.62, 0.01];   %% first X2_cardinality rows for x1=0 and latter for  x1=1 
     
+        W_Y_X1_X2 = lambdas_avg_channel(experiment)*W_Y_X1_X2_0 + (1-lambdas_avg_channel(experiment))*W_Y_X1_X2_1 ;
+        
+        W_Z_X1_X2_0 = [0.3, 0.5, 0.08, 0.12; 0 0 0 0; 0.16, 0.28, 0.37, 0.19; 0 0 0 0];  %% first X2_cardinality rows for x1=0 and latter for  x1=1
+        W_Z_X1_X2_1 = [0 0 0 0; 0.21, 0.32, 0.39, 0.08; 0 0 0 0; 0.48, 0.1, 0.38, 0.04];  %% first X2_cardinality rows for x1=0 and latter for  x1=1
     
+        W_Z_X1_X2 = lambdas_avg_channel(experiment)*W_Z_X1_X2_0 + (1-lambdas_avg_channel(experiment))*W_Z_X1_X2_1;
+
+
+        % Extract specific channel laws
+        [W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2]    = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
+    end
+
+    disp('[INFO] Using the following channel matrix for Bob');
+    disp(W_Y_X1_X2)
+
+    disp('[INFO] Using the following channel matrix for Eve');
+    disp(W_Z_X1_X2)
+
     % Loop on different secret key budgets to see how the covert rate grows
     for s=progress(1:length(sk_budgets))
 
@@ -168,12 +174,13 @@ for experiment=1:length(T_cardinalities)
         Y_cardinality           = X1_X2_cardinality;
         optimization_P_X2       = optimizations_P_X2(experiment);
         
-        if (optimization_P_X2 == 1)
+        if (optimization_P_X2 == 3)
             guessing_vector_cardinality   = X2_cardinality*T_cardinality + 2*T_cardinality; %(epsilon and P_T have T_cardinality and P_{X2 mid T} has T_cardinality for each x2).
-        elseif (optimization_P_X2 == 2 || optimization_P_X2 == 3)
-            guessing_vector_cardinality   = 2*T_cardinality; %(epsilon and P_T have T_cardinality and P_{X2 mid T} is fixed!).
+        elseif (optimization_P_X2 == 1 || optimization_P_X2 == 2) 
+            guessing_vector_cardinality   = 2*T_cardinality; %(epsilon and P_T have T_cardinality and P_{X2 mid T} is fixed!).        
         else
-            disp('[ERROR] ')
+            disp(['[ERROR] Unrecognized optimization_P_X2. Expected values in {1,2,3} got', num2str(optimization_P_X2)])
+            break
         end
         % The optimization is over probabilities so they must be in [0,1]
         lb = zeros(guessing_vector_cardinality,1);
@@ -205,7 +212,7 @@ for experiment=1:length(T_cardinalities)
                 
                 % compute the rates with the optimal probas_and_eps_guess for
                 % the fixed mu_1 and mu_2.
-                [r1, r2, rk] = compute_rates_for_fmincon(b_min, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, Y_cardinality, X1_X2_cardinality, sk_budget, DEBUG_covert);
+                [r1, r2, rk] = compute_rates_for_fmincon(b_min, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, Y_cardinality, X1_X2_cardinality, sk_budget, optimization_P_X2, DEBUG_covert);
     
                 r1_vects(index_rates_experiment, experiment) = r1;
                 r2_vects(index_rates_experiment, experiment) = r2;
@@ -214,9 +221,12 @@ for experiment=1:length(T_cardinalities)
                 index_rates_experiment = index_rates_experiment +1;
             end
         end
+%         disp('---------------------------')
+%         disp('bmin')
+%         disp(b_min)
+        r1_sk(s, experiment)=max(r1_vects(:, experiment));
 
-        r1_sk(s)=max(r1_vects(:, experiment));
-    
+        
     end
 end
            
@@ -224,25 +234,84 @@ end
 
 % for legends
 legends = cell(length(T_cardinalities), 1);
-
 for experiment=1:length(T_cardinalities)
-    legends(experiment) = {['X2 cardinality: ', num2str(X2_cardinalities(experiment)), ' // T cardinality: ', num2str(T_cardinalities(experiment)), ' // Secret-Key budget: ',  num2str(sk_budgets(experiment))]};
+    optimization_P_X2 = optimizations_P_X2(experiment);
+    if (optimization_P_X2 == 1)
+        legends(experiment) = {['P_{X_2 \midT}(1 \mid t)=1']};
+    elseif (optimization_P_X2 == 2)
+        legends(experiment) = {['P_{X_2 \midT}(1 \mid t)=0']};
+    elseif (optimization_P_X2 == 3)
+        legends(experiment) = {['Optimise P_{X_2 \midT}']};
+    elseif (optimization_P_X2 == 4)
+        legends(experiment) = {['Average channels with lambda=',num2str(lambdas_avg_channel(experiment))]};
+    end
+    if (experiment > 2)
+        legends(experiment) = {['Average channels with lambda=',num2str(lambdas_avg_channel(experiment))]};
+    end
 end
 
 title_plot = ['Rate region [seed=', num2str(seed), ']'];
-x_title = 'Covert user square-root rate';
-y_title = 'Non-Covert user rate';
-z_title = 'Secret-Key square-root rate';
+x_title = 'Secret-Key square-root rate';
+y_title = 'Covert user square-root rate';
+z_title = 'xxxxx';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Plots %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % secret key rate vs covert rate
+figure
 ax4 = nexttile;
 for experiment=1:length(T_cardinalities)
-    plot(ax4, sk_budgets, r1_sk);
+    plot(ax4, sk_budgets, r1_sk(:, experiment));
     hold on
 end
 title(ax4, title_plot);
-xlabel(ax4,z_title);
+xlabel(ax4,x_title);
 ylabel(ax4,y_title);
 legend(legends);
+
+% covert rate vs non-covert rate
+figure
+ax2 = nexttile;
+for experiment=1:length(T_cardinalities)
+    scatter(ax2, r1_vects(:, experiment), r2_vects(:, experiment));
+    hold on
+end
+title(ax2, title_plot);
+xlabel(ax2,x_title);
+ylabel(ax2,y_title);
+legend(legends);
+
+% secret key rate vs covert rate
+ax3 = nexttile;
+for experiment=1:length(T_cardinalities)
+    scatter(ax3, rk_vects(:, experiment), r1_vects(:, experiment));
+    hold on
+end
+title(ax3, title_plot);
+xlabel(ax3,z_title);
+ylabel(ax3,x_title);
+legend(legends);
+
+% secret key rate vs non-covert rate
+ax4 = nexttile;
+for experiment=1:length(T_cardinalities)
+    scatter(ax4, rk_vects(:, experiment), r2_vects(:, experiment));
+    hold on
+end
+
+% convhull of the rate region (covert and non-covert rates)
+if draw_convhull
+    figure 
+    ax5 = nexttile;
+    hold on
+    for experiment=1:length(T_cardinalities)
+        P_i = [r1_vects(:, experiment) , r2_vects(:, experiment)];
+        [k_i,av_i] = convhull(P_i);
+        plot(ax5, P_i(k_i,1),P_i(k_i,2))
+        hold on        
+    end
+    title(ax5, title_plot);
+    xlabel(ax5,x_title);
+    ylabel(ax5,y_title);
+    legend(legends);
+end

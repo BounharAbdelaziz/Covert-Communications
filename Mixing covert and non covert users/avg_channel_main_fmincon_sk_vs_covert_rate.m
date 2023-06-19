@@ -1,0 +1,230 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Rate Region simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Steps to follow:
+% - define a simple channel
+% - verify the constaints (absolute continuity)
+% - compute the rate
+% - optimize (P_T, P_{X2 \mid T}, \epsilon_T) with fmincon
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+clear all;
+
+% seed for reproducibility
+seed = 100;
+rng(seed);
+
+% simulation parameters
+step_size = 0.5;%0.005;%0.005;
+lb_mu_1 = 0;
+ub_mu_1 = 1;
+lb_mu_2 = 0;
+ub_mu_2 = 1;
+lambdas_avg_channel = [0 0 0.1] ;
+total_runs = (1+(ub_mu_1-lb_mu_1)/step_size)*(1+(ub_mu_2-lb_mu_2)/step_size);
+generate_random_laws = 0;
+
+% \matchal{T} is of cardinality \leq 4
+T_cardinalities               = [2,2,2];
+X2_cardinalities              = [2,2,2];
+sk_budget_min                 = 0;
+sk_budget_max                 = 1;
+sk_budget_step_size           = 0.01;
+sk_budgets                    = sk_budget_min:sk_budget_step_size:sk_budget_max;
+X1_cardinalities              = 2*ones(length(T_cardinalities)); % always 2.
+
+% We use the following notation:
+% 1: we set P_{X_2|T}(1|t)=1 for any t (that is X2=1 always).
+% 2: we set P_{X_2|T}(1|t)=0 for any t (that is X2=0 always).
+% 3: we optimise over P_{X_2|T}.      
+% 4: we take the average of the two channels X_2=0 and X_2=1.
+optimizations_P_X2             = [2 2 2];
+
+% ploting parameters
+plot_3d                         = 1;
+draw_convhull                   = 1;
+draw_dashed_line_square_region  = 0;
+
+% Prints if debug mode
+DEBUG                           = 0;
+DEBUG_covert                    = 0;
+DEBUG_covert_theorem_contraints = 0;
+
+% make sure we don't have a missing value
+assert(length(optimizations_P_X2) == length(T_cardinalities))
+assert(length(optimizations_P_X2) == length(X2_cardinalities))
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Rate Region simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% The rates are stored in a matrix, each row is for one experiment
+r1_vects = zeros(total_runs, length(T_cardinalities)); % length(T_cardinalities) is the number of experiments
+r2_vects = zeros(total_runs, length(T_cardinalities));
+rk_vects = zeros(total_runs, length(T_cardinalities));
+
+r1_sk    = zeros(length(sk_budgets), length(T_cardinalities));
+
+% optimization options
+% InitBarrierParam helps with feasibility ;
+% (https://groups.google.com/g/comp.soft-sys.matlab/c/rxR6ErkoKXY?pli=1)
+% 'InitBarrierParam', 1e10,
+options = optimoptions(@fmincon, 'Algorithm', 'interior-point', 'StepTolerance',1e-15,'FunctionTolerance',1e-15,'OptimalityTolerance',1e-15,'MaxFunctionEvaluations',1e+10, 'MaxIterations', 1e3, 'Display','off');
+
+W0 = [0.35, 0.11, 0.31, 0.23; 0.51, 0.02, 0.17, 0.30];
+tmp = [0.25, 0.25, 0.25, 0.25];
+WY0 = [W0(1,:); tmp; W0(2,:); tmp];
+
+W1 = [0.03, 0.56, 0.4, 0.01; 0.04,0.33, 0.62, 0.01];
+tmp = [0.25, 0.25, 0.25, 0.25];
+WY1 = [W1(1,:); tmp; W1(2,:); tmp];
+
+WZ0 = [0.3, 0.5, 0.08, 0.12; 0.16, 0.28, 0.37, 0.19];
+tmp = [0.25, 0.25, 0.25, 0.25];
+WZ0 = [WZ0(1,:); tmp; WZ0(2,:); tmp];
+
+WZ1 = [0.21, 0.32, 0.39, 0.08; 0.48, 0.1, 0.38, 0.04];
+tmp = [0.25, 0.25, 0.25, 0.25];
+WZ1 = [WZ1(1,:); tmp; WZ1(2,:); tmp];
+
+% tmp = [0.5, 0.5];
+% W0 = [0.35, 0.65; 0.51, 0.49];
+% WY0 = [W0(1,:); tmp; W0(2,:); tmp];
+% 
+% W1 = [0.33, 0.67; 0.62, 0.38];
+% WY1 = [W1(1,:); tmp; W1(2,:); tmp];
+% 
+% WZ0 = [0.3, 0.7; 0.37, 0.63];
+% WZ0 = [WZ0(1,:); tmp; WZ0(2,:); tmp];
+% 
+% WZ1 = [0.81, 0.19; 0.48, 0.52];
+% WZ1 = [WZ1(1,:); tmp; WZ1(2,:); tmp];
+% For each experiment from the list of comparative experiments.
+for experiment=1:length(optimizations_P_X2)    
+
+    disp(['[INFO] Running experiment ', num2str(experiment),'/',num2str(length(optimizations_P_X2)), '...']);
+
+    % for now only one experiment, generalization to be done after.
+    T_cardinality           = T_cardinalities(experiment);
+    X2_cardinality          = X2_cardinalities(experiment);
+    X1_cardinality          = X1_cardinalities(experiment);    
+    X1_X2_cardinality       = X1_cardinality*X2_cardinality; % cartesian product
+    Y_cardinality           = X1_X2_cardinality;
+    optimization_P_X2       = optimizations_P_X2(experiment);
+
+    % for the case where we take the average. The trick to make the code
+    % unchanged is to consider that it's like optimization_P_X2=1 (i.e.
+    % always sending X_2=0) and complete with zeros
+    
+    if (experiment == 1)
+        W_Y_X1_X2 = WY0;
+        W_Z_X1_X2 = WZ0;
+        % Extract specific channel laws
+        [W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2]    = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
+    elseif (experiment == 2)
+        W_Y_X1_X2 = WY1;
+        W_Z_X1_X2 = WZ1;
+        % Extract specific channel laws
+        [W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2]    = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
+    elseif (experiment == 3 || experiment == 4)         
+        lambda_avg_channel = lambdas_avg_channel(experiment);
+        W_Y_X1_X2 = lambda_avg_channel*WY0 + (1-lambda_avg_channel)*WY1 ;
+        W_Z_X1_X2 = lambda_avg_channel*WZ0 + (1-lambda_avg_channel)*WZ1;
+        % Extract specific channel laws
+        [W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2]    = CovertCommunication.extract_laws(W_Y_X1_X2, W_Z_X1_X2, X2_cardinality,Y_cardinality);
+    end
+
+    disp('[INFO] Using the following channel matrix for Bob');
+    disp(W_Y_X1_X2);
+    disp('[INFO] Using the following channel matrix for Eve');
+    disp(W_Z_X1_X2);
+
+    % Loop on different secret key budgets to see how the covert rate grows
+    for s=progress(1:length(sk_budgets))
+
+        % fix the secret key budget of this experiment
+        sk_budget=sk_budgets(s);
+       
+        if (optimization_P_X2 == 3)
+            guessing_vector_cardinality   = X2_cardinality*T_cardinality + 2*T_cardinality; %(epsilon and P_T have T_cardinality and P_{X2 mid T} has T_cardinality for each x2).
+        elseif (optimization_P_X2 == 1 || optimization_P_X2 == 2) 
+            guessing_vector_cardinality   = 2*T_cardinality; %(epsilon and P_T have T_cardinality and P_{X2 mid T} is fixed!).        
+        else
+            disp(['[ERROR] Unrecognized optimization_P_X2. Expected values in {1,2,3} got', num2str(optimization_P_X2)])
+            break
+        end
+        % The optimization is over probabilities so they must be in [0,1]
+        lb = zeros(guessing_vector_cardinality,1);
+        ub = ones(guessing_vector_cardinality,1);
+    
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Running the simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+        % The loss is \mu_1*r_1 + \mu_2*r_2. We vary \mu_1 and \mu_2 in order
+        % to get all points in the boundary. If \mu_1 = 0, we get the maximum
+        % rate for r_2 and vice versa. Otherwise, we get the points in between.
+        
+        index_rates_experiment = 1; % where to store the rates we compute
+    
+        for mu_1=lb_mu_1:step_size:ub_mu_1
+    
+            for mu_2=lb_mu_2:step_size:ub_mu_2
+                
+                % optimization function
+                function_to_maximize = @(probas_and_eps) objective_function_fmincon(probas_and_eps, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, Y_cardinality, X1_X2_cardinality, mu_1, mu_2, optimization_P_X2, DEBUG_covert);
+    
+                % constraints
+                nonlcon = @(probas_and_eps) my_rate_constraints(probas_and_eps, sk_budget, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, optimization_P_X2, DEBUG_covert);
+    
+                % choose a new random point
+                probas_and_eps_guess = rand(guessing_vector_cardinality, 1);
+                
+                % optimize probas_and_eps_guess
+                [b_min,fval] = fmincon(function_to_maximize,probas_and_eps_guess,[],[],[],[],lb,ub,nonlcon,options);
+                
+                % compute the rates with the optimal probas_and_eps_guess for
+                % the fixed mu_1 and mu_2.
+                [r1, r2, rk] = compute_rates_for_fmincon(b_min, W_Y_X1_1_X2, W_Y_X1_0_X2, W_Z_X1_1_X2, W_Z_X1_0_X2, T_cardinality, X2_cardinality, Y_cardinality, X1_X2_cardinality, sk_budget, optimization_P_X2, DEBUG_covert);
+    
+                r1_vects(index_rates_experiment, experiment) = r1;
+                r2_vects(index_rates_experiment, experiment) = r2;
+                rk_vects(index_rates_experiment, experiment) = rk;
+
+                index_rates_experiment = index_rates_experiment +1;
+            end
+        end
+%         disp('---------------------------')
+%         disp('bmin')
+%         disp(b_min)
+        r1_sk(s, experiment)=max(r1_vects(:, experiment));
+
+        
+    end
+end
+           
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Legends %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% for legends
+legends = cell(length(T_cardinalities), 1);
+for experiment=1:length(T_cardinalities)
+    if (experiment == 1)
+        legends(experiment) = {['1st Channel']};
+    elseif (experiment == 2)
+        legends(experiment) = {['2nd Channel']};
+    elseif (experiment >= 3)
+        lambda_avg_channel = lambdas_avg_channel(experiment);
+        legends(experiment) = {['Average channels with lambda=',num2str(lambda_avg_channel)]};
+    end
+end
+
+title_plot = ['Rate region [seed=', num2str(seed), ']'];
+x_title = 'Secret-Key square-root rate';
+y_title = 'Covert user square-root rate';
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Plots %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% secret key rate vs covert rate
+figure
+ax4 = nexttile;
+for experiment=1:length(T_cardinalities)
+    plot(ax4, sk_budgets, r1_sk(:, experiment));
+    hold on
+end
+title(ax4, title_plot);
+xlabel(ax4,x_title);
+ylabel(ax4,y_title);
+legend(legends);
